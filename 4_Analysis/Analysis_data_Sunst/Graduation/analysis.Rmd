@@ -15,31 +15,42 @@ pacman::p_load("rsample","randomForest","ranger","caret","h2o","Metrics","dynami
 ```
 
 ```{r}
-cor_SEE<-data%>%
-  select(-ID)%>%
-  cor(.)
+#文件夹中无data.csv文件
+# 删除 ID 列
+cor_SEE <- all_data[, -which(names(all_data) == "ID")]
+#cor_SEE<- sapply(cor_SEE, as.numeric)
+cor(cor_SEE)
 ```
+
+
 ```{r}
+#Import Graduation文件夹中的ALT2_all.csv文件
 ALT2_all<-ALT2_all%>%
   filter(ID!="phase_017_subj_13")
 write.csv(ALT2_all,"ALT2_all.csv")
 ```
 ```{r}
+#Import Graduation文件夹中的SRET.csv文件
 SRET<-SRET%>%
   filter(ID!="phase_017_subj_13")
 write.csv(SRET,"SRET.csv")
 ```
 
 ```{r}
-col<-cor_SEE%>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_dmoral_SRET_RJ2_d)
+col<-cor_SEE%>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
 row<-cor_SEE%>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
-ggplot(data.frame(cor_SEE), aes(colnames(col), colnames(row), fill = cor_SEE[, 1])) +
-  geom_tile(color = "white") +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "任务", y = "量表", fill = "相关系数") +
-  coord_fixed() # 确保x和y轴标签对齐
+
+#添加
+cor_matrix <- cor(col)
+corrplot::corrplot(cor_matrix)
+
+#ggplot(data.frame(cor_SEE), aes(colnames(col), colnames(row), fill = cor_SEE[, 1])) +
+  #geom_tile(color = "white") +
+  #scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  #theme_minimal() +
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  #labs(x = "任务", y = "量表", fill = "相关系数") +
+  #coord_fixed() # 确保x和y轴标签对齐
 ```
 
 
@@ -47,21 +58,23 @@ ggplot(data.frame(cor_SEE), aes(colnames(col), colnames(row), fill = cor_SEE[, 1
 
 #数据加载
 ```{r}
-day3_q_all<-read.csv("../../Data/all/day3_q_all.csv")
+#更改路径，需要文件：
+#day3_q_all.csv, SRET_all.csv, ALT1_all.csv, day0_all.csv, day1_q_all.csv, day2_q_all.csv, IAT_all.csv, ALT2_all.csv
 
-SRET<-read.csv("../../Data/all/SRET_all.csv")%>%
+day3_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day3_q_all.csv")
+SRET<-read.csv("../../Analysis_data_Sunst/Graduation/SRET_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
-ALT1_all<-read.csv("../../Data/all/ALT1_all.csv")%>%
+ALT1_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT1_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
-day0_all<-read.csv("../../Data/all/day0_all.csv")%>%
+day0_all<-read.csv("../../Analysis_data_Sunst/Graduation/day0_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
-day1_q_all<-read.csv("../../Data/all/day1_q_all.csv")%>%
+day1_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day1_q_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
-day2_q_all<-read.csv("../../Data/all/day2_q_all.csv")%>%
+day2_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day2_q_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
-IAT_all<-read.csv("../../Data/all/IAT_all.csv")%>%
+IAT_all<-read.csv("../../Analysis_data_Sunst/Graduation/IAT_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
-ALT2_all<-read.csv("../../Data/all/ALT2_all.csv")%>%
+ALT2_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT2_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
 ```
 
@@ -69,6 +82,7 @@ ALT2_all<-read.csv("../../Data/all/ALT2_all.csv")%>%
 ##问卷部分处理
 ### 合并day0到day2的数据，结果包含每个被试在每个原始题目得分，以及各量表总分，包括人口学变量
 ```{r}
+#day0t2_q.csv
 day0t2_q<- merge(day0_all, day1_q_all, by = "ID", all = TRUE) %>%
    merge(day2_q_all, by = "ID", all = TRUE)%>%
   mutate(    #总分计算
@@ -114,6 +128,7 @@ day0t2_q<-day0t2_q%>%
 
 ### 包括day3原始条目得分，以及量表总分，包括领域自尊
 ```{r}
+#day3_q_all.csv数据处理，处理后仍保存为day3_q_all.csv
 day3_q_all<-day3_q_all%>%
   mutate(
     phq_al = rowSums(select(., starts_with("phq")), na.rm = TRUE),
@@ -164,7 +179,7 @@ day3_q_all<-day3_q_all%>%
 ###量表及问卷部分的描述统计【平均数，最大、最小值、skewness】
 
 ```{r}
-
+#health_var
 health_var<-day3_q_all %>%
   select(c("ID","SGPS_al","gad_al","phq_al","swb_al")) %>%
   #mutate(#SGPS = ifelse(SGPS_al > mean(day3_q_all$SGPS_al), 1, 0),
@@ -180,6 +195,7 @@ health_var<-day3_q_all %>%
 
 
 ```{r}
+#day3_q_all.csv
 day3_q_all%>%
   merge(day0t2_q%>%select(ID,age,obj_ses1,fri_ses2,income), by = "ID", all = TRUE)%>%
   mutate(SES=obj_ses1+fri_ses2)%>%
@@ -189,6 +205,7 @@ Describe(.,file="day0t3_q_descrip.doc")#education,national,sex,fatherEdu,FatherO
 ```
 ####计数的频数，百分比
 ```{r}
+#day0t2_q.csv
 day0t2_q_des<-day0t2_q%>%
   select(sex,education,national,age,fatherEdu,FatherOccupation,motherEdu,MotherOccupation,gad,phq,income)%>%#0男，1女
   mutate(
@@ -474,7 +491,8 @@ test_retest <- cor_testretest(day0t2_q, day3_q_all)
 绝对值：0.2 = 小效应，0.5 = 中等效应，0.8 = 大效应
 
 ```{r IAT}
-##数据预处理，区分相容与不相容的block，
+##数据预处理，区分相容与不相容的block
+#IAT_all.csv,生成IAT_data, IAT_data1, 
 IAT_data <- IAT_all%>%
   mutate(ID = as.character(ID)) %>%
   mutate(ParticipantID = as.character(ParticipantID)) %>%
@@ -559,6 +577,7 @@ IAT_data<-IAT_data%>%
 
 ####IAT指标提取
 ```{r IAT的D值计算}
+#根据IAT_data1生成数据IAT_data_D2
 IAT_data_D<-IAT_data1%>%
   ungroup()%>%
   select(-c("block_type","se_rt"))%>%
@@ -587,13 +606,14 @@ IAT_data_D<-IAT_data_D%>%
          ability_IAT=ability)
 
 ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
-IAT_data_D2<-IAT_data_D2%>%
+##修改：将计算完成的IAT_data_中的"phase_017_subj_13"去除并保存为IAT_data_D2
+IAT_data_D2<-IAT_data_D%>%
   filter(ID!="phase_017_subj_13")
 ```
 
 ###ALT指标提取
 ```{r ALT2数据选择}
-
+#ALT2_all.csv
 ALT2_all <- ALT2_all%>%mutate(ID = as.character(ID)) %>%
    mutate(ParticipantID = as.character(ParticipantID)) %>%
   mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
@@ -605,7 +625,7 @@ ALT2_all <- ALT2_all%>%mutate(ID = as.character(ID)) %>%
 
 
 ```{r}
-
+#根据ALT2_all.csv生成ALT2_rt
 ALT2_rt <-ALT2_all%>% 
      filter(identity=="match")%>%
   select(ID,domain,valence,person,Image,rt,correct) %>%  #按被试与条件分组
@@ -628,6 +648,7 @@ ALT2_rt<-ALT2_rt%>%
 ```
 
 ```{r}
+#根据ALT2_all.csv生成ALT2_dprime
 ALT2_dprime<-ALT2_all%>%
    group_by(ID,domain,valence,person) %>%  #按被试与条件分组
   filter(valence=="positive")%>%# only in positive
@@ -664,6 +685,7 @@ ALT2_dprime<-ALT2_dprime%>%
 
 ###SRET
 ```{r 修正数据}
+#在SRET.csv文件夹中找不到“screen_id”
 # 选择ID为phase_016_subj_84和phase_016_subj_85的数据，以下步骤均在修正他们的RJ_formal1
 selected_SRET <- SRET %>%
   filter(ID %in% c("phase_016_subj_84", "phase_016_subj_85")) %>%
@@ -709,6 +731,7 @@ SRET.0<-SRET %>%
 
 ####SRET指标提取
 ```{r}
+#SRET.0csv中不包括“rt”，“correct”等
 SRET_EW<-SRET.0 %>%
   mutate(ID = as.character(ID)) %>%
   mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
