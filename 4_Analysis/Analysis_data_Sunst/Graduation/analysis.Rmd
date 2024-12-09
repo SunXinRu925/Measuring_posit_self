@@ -14,78 +14,43 @@ pacman::p_load("rsample","randomForest","ranger","caret","h2o","Metrics","dynami
 # an extremely fast java-based platform
 ```
 
-
 ```{r}
-#添加
-# 使用 read.csv 函数读取 CSV 文件
-ALT2_all <- read.csv("ALT2_all.csv", stringsAsFactors = FALSE)
-
-# 查看数据框的前几行以确认数据已正确读取
-head(ALT2_all)
-is.data.frame(ALT2_all)
-
-library(dplyr)
-
+#文件夹中无data.csv文件
+# 删除 ID 列
+cor_SEE <- all_data[, -which(names(all_data) == "ID")]
+#cor_SEE<- sapply(cor_SEE, as.numeric)
+cor(cor_SEE)
 ```
 
 
 ```{r}
-cor_SEE<-data%>%
-  select(-ID)%>%
-  cor(.)
-```
-
-
-```{r}
+#Import Graduation文件夹中的ALT2_all.csv文件
 ALT2_all<-ALT2_all%>%
   filter(ID!="phase_017_subj_13")
 write.csv(ALT2_all,"ALT2_all.csv")
 ```
-
-
 ```{r}
-#添加
-# 使用 read.csv 函数读取 CSV 文件
-SRET<- read.csv("SRET.csv", stringsAsFactors = FALSE)
-
-# 查看数据框的前几行以确认数据已正确读取
-head(SRET)
-```
-
-
-```{r}
+#Import Graduation文件夹中的SRET.csv文件
 SRET<-SRET%>%
   filter(ID!="phase_017_subj_13")
 write.csv(SRET,"SRET.csv")
 ```
 
 ```{r}
-#添加
-# 使用 read.csv 函数读取 CSV 文件
-cor_SEE<- read.csv("cor_SEE.csv", stringsAsFactors = FALSE)
-
-# 查看数据框的前几行以确认数据已正确读取
-head(cor_SEE)
-```
-
-
-```{r}
-col<-all_data%>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
-row<-all_data%>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+col<-cor_SEE%>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
+row<-cor_SEE%>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
 
 #添加
 cor_matrix <- cor(col)
 corrplot::corrplot(cor_matrix)
 
-
-# ggplot(data.frame(all_data), aes(colnames(col), colnames(row), fill = all_data[, 1])) +
-#   #ggplot(data.frame(cor_matrix), aes(row, col, fill = cor_matrix)) +
-#   geom_tile(color = "white") +
-#   scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
-#   theme_minimal() +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-#   labs(x = "任务", y = "量表", fill = "相关系数") +
-#   coord_fixed() # 确保x和y轴标签对齐
+#ggplot(data.frame(cor_SEE), aes(colnames(col), colnames(row), fill = cor_SEE[, 1])) +
+  #geom_tile(color = "white") +
+  #scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  #theme_minimal() +
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  #labs(x = "任务", y = "量表", fill = "相关系数") +
+  #coord_fixed() # 确保x和y轴标签对齐
 ```
 
 
@@ -93,8 +58,10 @@ corrplot::corrplot(cor_matrix)
 
 #数据加载
 ```{r}
-day3_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day3_q_all.csv")
+#更改路径，需要文件：
+#day3_q_all.csv, SRET_all.csv, ALT1_all.csv, day0_all.csv, day1_q_all.csv, day2_q_all.csv, IAT_all.csv, ALT2_all.csv
 
+day3_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day3_q_all.csv")
 SRET<-read.csv("../../Analysis_data_Sunst/Graduation/SRET_all.csv")%>%
   subset(., ID %in% day3_q_all$ID)
 ALT1_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT1_all.csv")%>%
@@ -115,6 +82,7 @@ ALT2_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT2_all.csv")%>%
 ##问卷部分处理
 ### 合并day0到day2的数据，结果包含每个被试在每个原始题目得分，以及各量表总分，包括人口学变量
 ```{r}
+#day0t2_q.csv
 day0t2_q<- merge(day0_all, day1_q_all, by = "ID", all = TRUE) %>%
    merge(day2_q_all, by = "ID", all = TRUE)%>%
   mutate(    #总分计算
@@ -160,6 +128,7 @@ day0t2_q<-day0t2_q%>%
 
 ### 包括day3原始条目得分，以及量表总分，包括领域自尊
 ```{r}
+#day3_q_all.csv数据处理，处理后仍保存为day3_q_all.csv
 day3_q_all<-day3_q_all%>%
   mutate(
     phq_al = rowSums(select(., starts_with("phq")), na.rm = TRUE),
@@ -192,7 +161,7 @@ day3_q_all<-day3_q_all%>%
      phq_al >= 20  ~ "重度",
     TRUE ~ NA_character_
   ))%>%
-  rename(Ability =domain_rating_1,##能力
+   rename(Ability =domain_rating_1,##能力
          Attraction=domain_rating_2,##身体吸引力
          Wealth=domain_rating_3, ##物质财富
          Social=domain_rating_4,##社交技能
@@ -210,7 +179,7 @@ day3_q_all<-day3_q_all%>%
 ###量表及问卷部分的描述统计【平均数，最大、最小值、skewness】
 
 ```{r}
-
+#health_var
 health_var<-day3_q_all %>%
   select(c("ID","SGPS_al","gad_al","phq_al","swb_al")) %>%
   #mutate(#SGPS = ifelse(SGPS_al > mean(day3_q_all$SGPS_al), 1, 0),
@@ -226,6 +195,7 @@ health_var<-day3_q_all %>%
 
 
 ```{r}
+#day3_q_all.csv
 day3_q_all%>%
   merge(day0t2_q%>%select(ID,age,obj_ses1,fri_ses2,income), by = "ID", all = TRUE)%>%
   mutate(SES=obj_ses1+fri_ses2)%>%
@@ -235,6 +205,7 @@ Describe(.,file="day0t3_q_descrip.doc")#education,national,sex,fatherEdu,FatherO
 ```
 ####计数的频数，百分比
 ```{r}
+#day0t2_q.csv
 day0t2_q_des<-day0t2_q%>%
   select(sex,education,national,age,fatherEdu,FatherOccupation,motherEdu,MotherOccupation,gad,phq,income)%>%#0男，1女
   mutate(
@@ -328,8 +299,6 @@ Campbell（1996），原版
 *
 ```{r 内部一致性}
 Alpha(day3_q_all, "selfclarity_", 1:12) 
-
-
 ```
 * 采用卞崔冬等(2009)翻译的中文版抑郁障碍量表（PHQ-9），
 回答种类包括“完全不会”、“几日”、“一半以上的日子”、及“几乎每日”分别相对应0、1、2、3分值。
@@ -522,7 +491,8 @@ test_retest <- cor_testretest(day0t2_q, day3_q_all)
 绝对值：0.2 = 小效应，0.5 = 中等效应，0.8 = 大效应
 
 ```{r IAT}
-##数据预处理，区分相容与不相容的block，
+##数据预处理，区分相容与不相容的block
+#IAT_all.csv,生成IAT_data, IAT_data1, 
 IAT_data <- IAT_all%>%
   mutate(ID = as.character(ID)) %>%
   mutate(ParticipantID = as.character(ParticipantID)) %>%
@@ -607,6 +577,7 @@ IAT_data<-IAT_data%>%
 
 ####IAT指标提取
 ```{r IAT的D值计算}
+#根据IAT_data1生成数据IAT_data_D2
 IAT_data_D<-IAT_data1%>%
   ungroup()%>%
   select(-c("block_type","se_rt"))%>%
@@ -635,13 +606,14 @@ IAT_data_D<-IAT_data_D%>%
          ability_IAT=ability)
 
 ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+##修改：将计算完成的IAT_data_中的"phase_017_subj_13"去除并保存为IAT_data_D2
 IAT_data_D2<-IAT_data_D%>%
   filter(ID!="phase_017_subj_13")
 ```
 
 ###ALT指标提取
 ```{r ALT2数据选择}
-
+#ALT2_all.csv
 ALT2_all <- ALT2_all%>%mutate(ID = as.character(ID)) %>%
    mutate(ParticipantID = as.character(ParticipantID)) %>%
   mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
@@ -653,7 +625,7 @@ ALT2_all <- ALT2_all%>%mutate(ID = as.character(ID)) %>%
 
 
 ```{r}
-
+#根据ALT2_all.csv生成ALT2_rt
 ALT2_rt <-ALT2_all%>% 
      filter(identity=="match")%>%
   select(ID,domain,valence,person,Image,rt,correct) %>%  #按被试与条件分组
@@ -676,6 +648,7 @@ ALT2_rt<-ALT2_rt%>%
 ```
 
 ```{r}
+#根据ALT2_all.csv生成ALT2_dprime
 ALT2_dprime<-ALT2_all%>%
    group_by(ID,domain,valence,person) %>%  #按被试与条件分组
   filter(valence=="positive")%>%# only in positive
@@ -710,10 +683,9 @@ ALT2_dprime<-ALT2_dprime%>%
 ```
 
 
-
-
 ###SRET
 ```{r 修正数据}
+#在SRET.csv文件夹中找不到“screen_id”
 # 选择ID为phase_016_subj_84和phase_016_subj_85的数据，以下步骤均在修正他们的RJ_formal1
 selected_SRET <- SRET %>%
   filter(ID %in% c("phase_016_subj_84", "phase_016_subj_85")) %>%
@@ -759,15 +731,8 @@ SRET.0<-SRET %>%
 
 ####SRET指标提取
 ```{r}
-SRET_EW<-SRET_all  #上一步骤已将SRET.0重命名为SRET_all,因此本段代码将SRET.0修正为SRET_all #改动
-
- rt <- Filter(is.function, mget(ls(pattern = "rt"), inherits = TRUE))# 如果找到了，你可以将它们替换为正确的数值
- if(length(rt) > 0) {
-  for(name in names(rt)) {
-    assign(name, as.numeric(0), inherits = TRUE)  # 或者其他的默认数值
-  }
-} #新增，rt原数据类型为function，利用代码更改数据类型
- 
+#SRET.0csv中不包括“rt”，“correct”等
+SRET_EW<-SRET.0 %>%
   mutate(ID = as.character(ID)) %>%
   mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
   mutate(correct= as.numeric(correct))%>% ##重编码correct
@@ -970,12 +935,9 @@ all_data%>%
          "NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
   scale(.)%>%
 cor(.)%>%
-corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>% #在使用 corrplot函数时，指定的颜色限制（col.lim）没有覆盖相关系数矩阵中的所有值
+corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>%
   corrRect(name = c("SCS",'ability_ALT_rt','moral_SRET_RJ2_d'))
 ```
-
-
-
 ```{r}
 all_data%>%
   select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
@@ -1004,16 +966,14 @@ cor(.)%>%
 ```{r}
 ## leave blank on non-significant coefficient
 ## add significant correlation coefficients
-#无testRes文件
 
 corrplot(cor_data2, p.mat = testRes$p, method = 'circle', type = 'lower', insig='blank',
          addCoef.col ='black', number.cex = 0.8, order = 'AOE', diag=FALSE)
 ```
 ##网络分析
-
 ```{r}
 
-#CorMat_FDR <- FDRnetwork(cor_auto(data[,3:153]),cutoff=0.1, method = "pval")#lfdr
+CorMat_FDR <- FDRnetwork(cor_auto(data[,2:150]),cutoff=0.1, method = "pval")#lfdr
 lasso_1<- qgraph::qgraph(CorMat_FDR , layout = "spring",
                       groups = list(c(1:36,47:71,132,133,134), c(37:46,91:110,131),c(72:90,111:130,135),c(136,138,140,142,144,146,148),c(137,139,141,143,145,147,149) ),
                       #非,能力，道德
@@ -1025,10 +985,9 @@ lasso_1<- qgraph::qgraph(CorMat_FDR , layout = "spring",
 ```
 
 
-
 ```{r 构建网络分析}
 
-aen_glasso_q <- qgraph::EBICglasso(cor(data[,3:153]), n=503, gamma = 0.5)  #,returnAllResults=TRUE，扣除ID列，共151列
+aen_glasso_q <- qgraph::EBICglasso(cor(data[,2:150]), n=503, gamma = 0.5)  #,returnAllResults=TRUE，扣除ID列，共151列
 
 ```
 
@@ -1241,23 +1200,20 @@ BIC：这是贝叶斯信息准则，用于模型比较。较低的BIC值表示�
 Measures of factor score adequacy：这部分展示了因子得分的有效性指标，包括因子得分与因子之间的相关性、多元决定系数（Multiple R square）和可能因子得分的最低相关性。这些指标反映了因子得分的有效性和可靠性。
 ##task的聚类
 ```{r}
-#write.csv(structure_task_6[["loadings"]],"task_loadings.csv") structure_task_6文件夹不存在，因此需要在Files中手动import
+write.csv(structure_task_6[["loadings"]],"task_loadings.csv")
 task_loadings<-read.csv("task_loadings.csv")
-task_loadings<-task_loadings%>%select(-X) #task_loadings中的X列为非数值型，不能对其进行分析，须剔除
 distances <- dist(task_loadings, method="euclidean")
  dendro <- hclust(distances, method="complete")
  clusters <- cutreeDynamic(dendro, method="hybrid",minClusterSize=4,  distM=as.matrix(distances),deepSplit=4, maxCoreScatter=NULL, minGap=NULL, maxAbsCoreScatter=NULL, minAbsGap=NULL)
  
 ```
 ```{r}
-#此步骤需安装package_name包，若您的R版本不可用该包，请安装dendextend。
 plot(color_branches(as.dendrogram(dendro), k = 3))
 ```
 ##量表的聚类
 ```{r}
-# write.csv(structure_q_9[["loadings"]],"q_loadings.csv")structure_q_9文件夹不存在，因此需要在Files中手动import
+write.csv(structure_q_9[["loadings"]],"q_loadings.csv")
 q_loadings<-read.csv("q_loadings.csv")
-q_loadings<-q_loadings%>%select(-X) #q_loadings中的X列为非数值型，不能对其进行分析，须剔除
 distances2 <- dist(q_loadings, method="euclidean")
  dendro2 <- hclust(distances2, method="complete")
  clusters2 <- cutreeDynamic(dendro2, method="hybrid",minClusterSize=4,  distM=as.matrix(distances2),deepSplit=4, maxCoreScatter=NULL, minGap=NULL, maxAbsCoreScatter=NULL, minAbsGap=NULL)
@@ -1343,7 +1299,7 @@ data_score<-read.csv("data_factor_score.csv")
 
 
 ```{r}
-data[3:136]%>%
+data[2:136]%>%
 fa.parallel(.,fa='both',n.iter = 100,
   main='我的碎石图')
 ```
@@ -1355,7 +1311,7 @@ fa.parallel(.,fa='both',n.iter = 100,
 ```{r}
 
 
-data_q<-data[3:136]
+data_q<-data[2:136]
 set.seed(123) # 设置随机种子以获得可重复的结果
 train_index <- sample(1:nrow(data_q), 0.7 * nrow(data_q))
 
@@ -1364,12 +1320,12 @@ training <- data_q[train_index, ]
 test <- data_q[-train_index, ]
 ```
 ```{r}
-data[3:136]%>%
+data[2:136]%>%
 performance::check_factorstructure(.)
 ```
 
 ```{r}
-#需library（psych）
+
 structure_q_9 <- psych::fa(training,nfactors = 9,rotate="oblimin",fm="pa") 
 ```
 
@@ -1388,11 +1344,10 @@ structure_q_9
 ```
 
 ```{r}
-#模型不收敛
 model_performance(q9, metrics = "all", verbose = TRUE)
 ```
 ```{r}
-write.csv(factor.scores(data[3:136],f=structure_q_9)$score,"q_factor_score.csv")
+write.csv(factor.scores(data[2:136],f=structure_q_9)$score,"q_factor_score.csv")
 
 ```
 
@@ -1400,7 +1355,7 @@ write.csv(factor.scores(data[3:136],f=structure_q_9)$score,"q_factor_score.csv")
 
 
 ```{r}
-data[137:151]%>%
+data[137:150]%>%
 performance::check_factorstructure(.)
 ```
 
@@ -1409,14 +1364,14 @@ performance::check_factorstructure(.)
 ```{r}
 # to have reproducible result, we will also set seed here so that similar
 # portions of the data are used each time we run the following code
-data_task<-data[137:151]
+data_task<-data[137:150]
 # 创建训练集和测试集
 training2 <- data_task[train_index, ]
 test2 <- data_task[-train_index, ]
 ```
 
 ```{r}
-data[137:151]%>%
+data[137:150]%>%
 fa.parallel(.,fa='both',n.iter = 100,
   main='我的碎石图')
 ```
@@ -1448,7 +1403,7 @@ write.csv(structure_task_6$loadings,"task.csv")
 ```
 
 ```{r}
-data[3:151]%>%
+data[2:150]%>%
 fa.parallel(.,fa='both',n.iter = 100,
   main='我的碎石图')
 
@@ -1457,19 +1412,19 @@ fa.parallel(.,fa='both',n.iter = 100,
 ```{r}
 # to have reproducible result, we will also set seed here so that similar
 # portions of the data are used each time we run the following code
-data_task<-data[3:151]
+data_task<-data[2:150]
 # 创建训练集和测试集
 
 training3 <- data_task[train_index, ]
 test3 <- data_task[-train_index, ]
 ```
 ```{r}
-data[3:151]%>%
+data[2:150]%>%
 performance::check_factorstructure(.)
 ```
 
 ```{r}
-#在上面的分析中，structure_q_9模型不收敛
+
 structure_all_9 <- psych::fa(training3,nfactors =9,rotate="oblimin",fm="pa") 
   
 ```
@@ -1490,25 +1445,22 @@ model_performance(task_q, verbose = TRUE)
 
 ```
 ```{r}
-write.csv(factor.scores(data[3:151],f=structure_all_9)$score,"test_score.csv")
+write.csv(factor.scores(data[2:150],f=structure_all_9)$score,"test_score.csv")
 ```
 
 查看图
                                        
 ```{r}
-#performed using maximum likelihood estimation，Factor scores were estimated using the tenBerge
-#object 'day3_q_fa' not found
+  #performed using maximum likelihood estimation，Factor scores were estimated using the tenBerge
 fa.diagram(day3_q_fa,cut=0.35,sort=TRUE,digits=2)
 ```
-
 
 
 查看因子得分
 
 ```{r}
 #factor.scores(day3_q_cor,f=day3_q_fa)
-# object 'health_var' not found
-SEE_EFA_score<-factor.scores(data[3:151],f=structure_all_9)$score%>%
+SEE_EFA_score<-factor.scores(data[2:150],f=structure_all_9)$score%>%
   cbind(data%>%select(ID))
 RF_data<-SEE_EFA_score%>%
   merge(health_var,by="ID")
@@ -1516,7 +1468,7 @@ RF_data<-SEE_EFA_score%>%
 #量表
 ```{r}
 #factor.scores(day3_q_cor,f=day3_q_fa)
-SEE_EFA_score2<-factor.scores(data[3:136],f=structure_q_9)$score%>%
+SEE_EFA_score2<-factor.scores(data[2:136],f=structure_q_9)$score%>%
   cbind(data%>%select(ID))
 RF_data2<-SEE_EFA_score2%>%
   merge(health_var,by="ID")
@@ -1524,22 +1476,22 @@ RF_data2<-SEE_EFA_score2%>%
 # 任务
 ```{r}
 #factor.scores(day3_q_cor,f=day3_q_fa)
-SEE_EFA_score3<-factor.scores(data[137:151],f=structure_task_6)$score%>%
+SEE_EFA_score3<-factor.scores(data[137:150],f=structure_task_6)$score%>%
   cbind(data%>%select(ID))
 RF_data3<-SEE_EFA_score3%>%
   merge(health_var,by="ID")
 ```
 
 ```{r}
-data[3:138]%>%
+data[2:138]%>%
 KMO(.)
 
-data[3:138]%>%
+data[2:138]%>%
 cortest.bartlett(.)
 ```
 
 ```{r}
-data[3:138]%>%
+data[2:138]%>%
 fa.parallel(.,fa='both',n.iter = 1000,
   main='我的碎石图')
 
@@ -1547,7 +1499,7 @@ fa.parallel(.,fa='both',n.iter = 1000,
 
 ```{r}
 
-data[3:138]%>%
+data[2:138]%>%
 EFA(
   .,
   vars = names(.),
@@ -1558,22 +1510,22 @@ EFA(
 )
 ```
 ```{r}
-q_fa2<-data[3:138]%>%
+q_fa2<-data[2:138]%>%
 fa(.,fm="pca",nfactor=9,rotate="varimax")
 #查看表，低于0.35的不显示
 print(q_fa2,cut=0.3)
 ```
 
 ```{r}
-data[139:151]%>%
+data[139:152]%>%
 KMO(.)
 
-data[139:151]%>%
+data[139:152]%>%
 cortest.bartlett(.)
 ```
 
 ```{r}
-data[139:151]%>%
+data[139:152]%>%
 fa.parallel(.,fa='both',n.iter = 1000,
   main='我的碎石图')
 
@@ -1583,7 +1535,7 @@ fa.parallel(.,fa='both',n.iter = 1000,
 
 ```{r}
 
-data[139:151]%>%
+data[139:152]%>%
 EFA(
   .,
   vars = names(.),
@@ -1605,9 +1557,9 @@ library(dendextend)
 library(ggdendro)
 
 # 假设data是一个数据框，包含了您要进行因子分析的数据
-#data中前两列为非数值型，需除去
+
 # 进行探索性因子分析
-efa_results <- fa(data[3:151], nfactors = 3, rotate = "varimax", scores = TRUE)
+efa_results <- fa(data, nfactors = 3, rotate = "varimax", scores = TRUE)
 
 # 提取因子载荷矩阵
 factor_loadings <- efa_results$loadings
@@ -1655,7 +1607,7 @@ plot(hc, main = "层次聚类树形图")
 ##随机森林前的
 ```{r}
 
-#health_var文件不存在
+
 
 health_all_cor<-all_data%>%
   select(ID,matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
@@ -1675,10 +1627,9 @@ corrplot(., order = 'original') %>%
 ```{r}
 # Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
 # Use set.seed for reproducibility
-#复现时未找到RF_data,尝试使用RF替代RF_data。
 
 set.seed(123)
-rf_split <- initial_split(RF, prop = .7)# 70%训练集，30%测试集
+rf_split <- initial_split(RF_data, prop = .7)# 70%训练集，30%测试集
 rf_train <- training(rf_split)#训练集
 rf_test  <- testing(rf_split)#测试集
 ```
@@ -1727,34 +1678,27 @@ For regression, we use averaging
 ```{r Tuning the parameters}
 #调参，选择maxnodes和ntree
 # If training the model takes too long try setting up lower value of N
-#通过 num_columns <- ncol(rf_train)检查列数，发现rf_train只有5列，因此将代码更改为[2:5]:
-X_train_ = rf_train[1:352 , 2:5]
-y_train_ = rf_train[1:352,2:5]#SGPS
 
-# 检查数据集长度
-print(length(X_train_))
-print(length(y_train_))
+X_train_ = rf_train[1:352 , 2:10]
+y_train_ = rf_train[1:352,11]#SGPS
 
-df_tmp = rf_train[, 2:5]
-#Warning in randomForest.default(x = X_train_, y = y_train_, type = regression,：The response has five or fewer unique values.  Are you sure you want to do regression? 运行显示不适合回归分析且y_train与y_train长度不一致
-rf.all.factor <- randomForest(SGPS ~ ., data=df_tmp, type = regression, ntree = 100,importance = TRUE)
+rf.all.factor <- randomForest(x = X_train_, y = y_train_,type = regression, ntree = 100,importance = TRUE)
 
 ```
 ```{r}
 #tune the model调参
 set.seed(123)
-tuneRF(X_train,y_train,stepFactor=3)
+tuneRF(rf_train[1:352 , 2:10],rf_train[1:352,11],stepFactor=3)
 ```
 
 ```{r}
-X_test = rf_test[1:151 , 2:5]
-y_test = rf_test[1:151,2]#SGPS
+X_test = rf_test[1:151 , 2:10]
+y_test = rf_test[1:151,11]#SGPS
 predictions <- predict(rf.all.factor, X_test)
 result <- X_test
 result['SGPS'] <- y_test
 result['prediction']<-  predictions
-head(result) 
-
+head(result)                                                                                                                                
 ```
 
 
@@ -1811,10 +1755,10 @@ ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names,
 ###gad
 ```{r}
 
-y_test_gad = rf_test[1:151,2]#gad
+y_test_gad = rf_test[1:151,12]#gad
 
 
-y_train_gad =rf_train[1:352,2] #gad
+y_train_gad =rf_train[1:352,12] #gad
 
 gad<- randomForest(x = X_train_, y = y_train_gad,type =regression, ntree = 100,importance = TRUE)
 predictions_gad1 <- predict(gad, X_test)
