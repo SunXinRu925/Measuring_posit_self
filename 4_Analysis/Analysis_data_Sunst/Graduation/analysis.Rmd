@@ -1200,7 +1200,7 @@ BIC：这是贝叶斯信息准则，用于模型比较。较低的BIC值表示�
 Measures of factor score adequacy：这部分展示了因子得分的有效性指标，包括因子得分与因子之间的相关性、多元决定系数（Multiple R square）和可能因子得分的最低相关性。这些指标反映了因子得分的有效性和可靠性。
 ##task的聚类
 ```{r}
-write.csv(structure_task_6[["loadings"]],"task_loadings.csv")
+#write.csv(structure_task_6[["loadings"]],"task_loadings.csv"),无structure_task_6文件，import "task_loadings.csv"
 task_loadings<-read.csv("task_loadings.csv")
 distances <- dist(task_loadings, method="euclidean")
  dendro <- hclust(distances, method="complete")
@@ -1208,11 +1208,12 @@ distances <- dist(task_loadings, method="euclidean")
  
 ```
 ```{r}
+library(dendextend)
 plot(color_branches(as.dendrogram(dendro), k = 3))
 ```
 ##量表的聚类
 ```{r}
-write.csv(structure_q_9[["loadings"]],"q_loadings.csv")
+#write.csv(structure_q_9[["loadings"]],"q_loadings.csv")无structure_q_9文件，import "q_loadings.csv"
 q_loadings<-read.csv("q_loadings.csv")
 distances2 <- dist(q_loadings, method="euclidean")
  dendro2 <- hclust(distances2, method="complete")
@@ -1225,7 +1226,7 @@ plot(color_branches(as.dendrogram(dendro2), k = 3))
 
 ###量表
 ```{r}
-write.csv(structure_q_9[["loadings"]],"q_loadings.csv")
+#write.csv(structure_q_9[["loadings"]],"q_loadings.csv")无structure_q_9文件
 q_loadings<-read.csv("q_loadings.csv")
 distances2 <- dist(q_loadings, method="euclidean")
  dendro2 <- hclust(distances2, method="complete")
@@ -1299,7 +1300,8 @@ data_score<-read.csv("data_factor_score.csv")
 
 
 ```{r}
-data[2:136]%>%
+#第二列为ID,将2:136更改为3:136
+data[3:136]%>%
 fa.parallel(.,fa='both',n.iter = 100,
   main='我的碎石图')
 ```
@@ -1311,7 +1313,7 @@ fa.parallel(.,fa='both',n.iter = 100,
 ```{r}
 
 
-data_q<-data[2:136]
+data_q<-data[3:136]
 set.seed(123) # 设置随机种子以获得可重复的结果
 train_index <- sample(1:nrow(data_q), 0.7 * nrow(data_q))
 
@@ -1320,13 +1322,16 @@ training <- data_q[train_index, ]
 test <- data_q[-train_index, ]
 ```
 ```{r}
-data[2:136]%>%
+data[3:136]%>%
 performance::check_factorstructure(.)
 ```
 
 ```{r}
 
 structure_q_9 <- psych::fa(training,nfactors = 9,rotate="oblimin",fm="pa") 
+
+#运行结果：Warning in GPFoblq(A, Tmat = Tmat, normalize = normalize, eps = eps, maxit = maxit,  :
+  convergence not obtained in GPFoblq. 1000 iterations used.
 ```
 
 ```{r}
@@ -1627,7 +1632,7 @@ corrplot(., order = 'original') %>%
 ```{r}
 # Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
 # Use set.seed for reproducibility
-
+# object 'RF_data' not found
 set.seed(123)
 rf_split <- initial_split(RF_data, prop = .7)# 70%训练集，30%测试集
 rf_train <- training(rf_split)#训练集
