@@ -24,6 +24,13 @@ cor(cor_SEE)
 
 
 ```{r}
+#Addition:
+#从all_data数据框中移除了名为"ID"的列，并将剩余的数据赋值给新的变量cor_SEE
+write.csv(cor_SEE,"cor_SEE.csv")
+```
+
+
+```{r}
 #Import Graduation文件夹中的ALT2_all.csv文件
 ALT2_all<-ALT2_all%>%
   filter(ID!="phase_017_subj_13")
