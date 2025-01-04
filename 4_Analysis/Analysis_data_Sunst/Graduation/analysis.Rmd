@@ -692,7 +692,6 @@ ALT2_dprime<-ALT2_dprime%>%
 
 ###SRET
 ```{r 修正数据}
-#在SRET.csv文件夹中找不到“screen_id”
 # 选择ID为phase_016_subj_84和phase_016_subj_85的数据，以下步骤均在修正他们的RJ_formal1
 selected_SRET <- SRET %>%
   filter(ID %in% c("phase_016_subj_84", "phase_016_subj_85")) %>%
@@ -711,7 +710,7 @@ selected2_SRET <- SRET %>%
   filter(screen_id == "RJ_formal_2") %>%
   select(c("ID", "word",  "identity")) %>%
   rename(person2 = identity)%>%
-  filter(!is.na(person))
+  filter(!is.na(person2))
 
  SRET_update <- SRET_update %>%
   filter(screen_id %in% c("RJ_formal1")) %>%
@@ -722,8 +721,8 @@ SRET_update <-SRET_update%>%
 
 
 SRET.0<-SRET %>%
-  filter(screen_id != "RJ_formal1" )%>%
-  unique(SRET.0$screen_id)
+  filter(screen_id != "RJ_formal1" )#%>%
+#unique(SRET.0$screen_id)%>%
 
   SRET.0<-rbind(SRET.0,SRET_update)
   
@@ -738,7 +737,6 @@ SRET.0<-SRET %>%
 
 ####SRET指标提取
 ```{r}
-#SRET.0csv中不包括“rt”，“correct”等
 SRET_EW<-SRET.0 %>%
   mutate(ID = as.character(ID)) %>%
   mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
@@ -942,7 +940,8 @@ all_data%>%
          "NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
   scale(.)%>%
 cor(.)%>%
-corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>%
+
+#corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>%
   corrRect(name = c("SCS",'ability_ALT_rt','moral_SRET_RJ2_d'))
 ```
 ```{r}
@@ -973,7 +972,9 @@ cor(.)%>%
 ```{r}
 ## leave blank on non-significant coefficient
 ## add significant correlation coefficients
-
+library(corrplot)
+#进行相关性的显著性测试
+testRes <- cor.mtest(cor_data2, conf.level = 0.95)
 corrplot(cor_data2, p.mat = testRes$p, method = 'circle', type = 'lower', insig='blank',
          addCoef.col ='black', number.cex = 0.8, order = 'AOE', diag=FALSE)
 ```
@@ -984,7 +985,7 @@ CorMat_FDR <- FDRnetwork(cor_auto(data[,2:150]),cutoff=0.1, method = "pval")#lfd
 lasso_1<- qgraph::qgraph(CorMat_FDR , layout = "spring",
                       groups = list(c(1:36,47:71,132,133,134), c(37:46,91:110,131),c(72:90,111:130,135),c(136,138,140,142,144,146,148),c(137,139,141,143,145,147,149) ),
                       #非,能力，道德
-                     colors=c("white","lightblue","pink","blue","red"),
+                     color=c("white","lightblue","pink","blue","red"),
                 vsize=2, #节点大小
                          label.cex = 0.1,  # 调整节点标签字体大小
                          edge.labels = FALSE,  # 显示边标签,
@@ -993,7 +994,6 @@ lasso_1<- qgraph::qgraph(CorMat_FDR , layout = "spring",
 
 
 ```{r 构建网络分析}
-
 aen_glasso_q <- qgraph::EBICglasso(cor(data[,2:150]), n=503, gamma = 0.5)  #,returnAllResults=TRUE，扣除ID列，共151列
 
 ```
