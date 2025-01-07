@@ -934,17 +934,15 @@ corrplot(cor_data2, order = 'hclust', addrect = 4)
 
 corrplot(cor_data2, method = 'square', diag = FALSE, order = 'hclust',
          addrect = 4, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
-all_data%>%
-  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
-  
-  rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,
-         "NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
-  scale(.)%>%
-cor(.)%>%
-
+#all_data%>%
+#select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
+#rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,"NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
+#scale(.)%>%
+#cor(.)%>%
 #corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>%
-  corrRect(name = c("SCS",'ability_ALT_rt','moral_SRET_RJ2_d'))
+#corrRect(name = c("SCS",'ability_ALT_rt','moral_SRET_RJ2_d'))
 ```
+
 ```{r}
 all_data%>%
   select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
