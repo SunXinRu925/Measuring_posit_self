@@ -740,7 +740,7 @@ SRET.0<-SRET %>%
 
 SRET_EW<-SRET.0 %>%
   mutate(ID = as.character(ID)) %>%
-  mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
+ # mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
   mutate(correct= as.numeric(correct))%>% ##重编码correct
   filter(screen_id%in%c("EW_formal") )%>% #选择正式实验的数据
    filter(!word %in% c("务实", "迷糊", "坚贞", "说谎", "主见", "缓慢", "素养", "低俗"))%>% #筛除首尾的干扰词
@@ -774,7 +774,7 @@ SRET_EW<-SRET_EW%>%
 ```{r}
 SRET_rt<-SRET.0 %>%
   mutate(ID = as.character(ID)) %>%
-  mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
+ # mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
   mutate(correct= as.numeric(correct))%>% ##重编码correct
   filter(screen_id%in%c("EW_formal") )%>% #选择正式实验的数据
    filter(!word %in% c("务实", "迷糊", "坚贞", "说谎", "主见", "缓慢", "素养", "低俗"))%>% #筛除首尾的干扰词
@@ -1474,6 +1474,11 @@ SEE_EFA_score<-factor.scores(data[2:150],f=structure_all_9)$score%>%
 RF_data<-SEE_EFA_score%>%
   merge(health_var,by="ID")
 ```
+
+```{r}
+write.csv(RF_data,"RF_data.csv")
+```
+
 #量表
 ```{r}
 #factor.scores(day3_q_cor,f=day3_q_fa)
