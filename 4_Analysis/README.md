@@ -4,6 +4,7 @@
   - raw IAT data from previous research by Yi Ding
   # SRET1-29
   - raw SRET data from previous research by Yi Ding
+  
 # Analysis data_Sunst
 - store raw data and analysis scripts for 2023 SEE project
   -  raw(已经作为单独的文件夹6.Rawdata)
@@ -25,8 +26,10 @@
   -select （按阶段合并的数据）
   
 # Analysis data_SunXR
-
- - The correlation and significance between the questionnaire data and the behavioral data.
-  result
- - Draw a heat map of the relevance (only the significantly relevant parts are shown).
-  significant_correlation_heatmap
+ - all_data
+ - ALT_data
+ - SRET_data
+ - IAT_data
+ - retest_socre
+ - clean
+ - Analysis

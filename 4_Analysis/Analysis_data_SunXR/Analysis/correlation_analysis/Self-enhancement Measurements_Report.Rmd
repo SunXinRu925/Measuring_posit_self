@@ -1,0 +1,41 @@
+---
+title: "Self-enhancement Measurements_Report"
+author: "SunXinRu"
+date: "2024-11-30"
+output: html_document
+    toc: true
+    toc_float: true
+    number_sections: true
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Abstract
+
+**Keywords**: 
+
+## Introduction
+
+## The review of studies
+1.A review of research on Self-enhancement
+2.Research in related fields on measurement internal consistency
+
+## Analysis
+1.Correlation Analysis (Network Diagram)
+2.Bayesian hierarchical model analysis (between different measurement rooms)
+3.Self-enhancement as a prediction of psychological adaptation
+
+## Conclusion
+
+## Discussion
+
+## Future research
+
+## References
+
+
