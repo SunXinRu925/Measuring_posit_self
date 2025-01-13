@@ -1,43 +1,33 @@
-# clean data [The questionnaire data after the cleaning]
-  - clean_day0
-  - clean_day1
-  - clean_day2
-  - clean_day3
-  - Readme.txt
-  - select_code.R
-   
-# IAT_data [All the IAT data and the clean IAT data]
-  - IAT_all
-  - IAT_clean
-  - READMME.md
+# Analysis data_Dingyi
+  - clean data of IAT and SAT from previous research by Yi Ding
+  # IAT_raw
+  - raw IAT data from previous research by Yi Ding
+  # SRET1-29
+  - raw SRET data from previous research by Yi Ding
   
-# ALT_data [All the ALT data and the clean ALT data]
-  - ALT1_all
-  - ALT2_all
-  - ALT2_dprime
-  - ALT2_rt
-  - README.md
-    
-# SRET_data [All the SRET data and the clean SRET data]
-  - SRET
-  - SRET_all
-  - SRET_EW
-  - SRET_RJ
-  - SRET_rt
-  - README.md
+# Analysis data_Sunst
+- store raw data and analysis scripts for 2023 SEE project
+  -  raw(已经作为单独的文件夹6.Rawdata)
+     [store all raw data from naodao]
+    -  day0
+    -  day1
+    -  day2
+    -  day3
+  -  clean
+  [store all clean data after preprocess]
+    -  clean_day0
+    -  clean_day1
+    -  clean_day2
+    -  clean_day3
+  -  descrip
+ [script for preprocess by R]
+  
+  -Graduation (淑婷的毕业材料)
+  -select （按阶段合并的数据）
+  
+# Analysis data_SunXR
 
-# retest_data [Questionnaire retest data]
-  - day0t2_q
-  - day3_q_all
-  - retest_score
-  - README.md
-  
-# all_data [All the data and data conversion results] 
-  - all_data
-  - all_data_correlation
-  - data_z
-  - data2_z
-  - README.md
-  
-# Analysis [The following analysis of the database] 
-  - correlation_analysis
+ - The correlation and significance between the questionnaire data and the behavioral data.
+  result
+ - Draw a heat map of the relevance (only the significantly relevant parts are shown).
+  significant_correlation_heatmap
