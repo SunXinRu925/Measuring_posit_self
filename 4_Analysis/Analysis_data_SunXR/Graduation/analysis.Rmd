@@ -1,7 +1,7 @@
 ---
-title: "Graduation"
+title: "analysis_XR"
 output: html_document
-date: "2024-03-18"
+date: "2025-03-10"
 ---
 #加载包
 ```{r setup, include=FALSE}
@@ -14,19 +14,23 @@ pacman::p_load("rsample","randomForest","ranger","caret","h2o","Metrics","dynami
 # an extremely fast java-based platform
 ```
 
-```{r}
-#文件夹中无data.csv文件
-# 删除 ID 列
-cor_SEE <- all_data[, -which(names(all_data) == "ID")]
-#cor_SEE<- sapply(cor_SEE, as.numeric)
-cor(cor_SEE)
-```
-
 
 ```{r}
-#Addition:
-#从all_data数据框中移除了名为"ID"的列，并将剩余的数据赋值给新的变量cor_SEE
-write.csv(cor_SEE,"cor_SEE.csv")
+# 导入数据
+all_data <- read.csv("all_data.csv", stringsAsFactors = FALSE)
+
+# 删除ID列
+all_data_cleaned <- all_data %>%
+  select(-ID)
+
+#保存到新文件夹中
+
+output_folder <- "analysis_XR"
+output_file <- "all_data_cleaned.csv"
+output_path <- file.path(output_folder, output_file)
+
+write.csv(all_data_cleaned, output_path, row.names = FALSE)
+
 ```
 
 
