@@ -35,17 +35,22 @@ write.csv(all_data_cleaned, output_path, row.names = FALSE)
 
 
 ```{r}
-#Import Graduation文件夹中的ALT2_all.csv文件
+
+# 设置文件路径
+file_path1 <- "./ALT2_all.csv"
+file_path2 <- "./SRET.csv"
+# 读取 CSV 文件
+ALT2_all <- read.csv(file_path1, stringsAsFactors = FALSE)
 ALT2_all<-ALT2_all%>%
   filter(ID!="phase_017_subj_13")
 write.csv(ALT2_all,"ALT2_all.csv")
-```
-```{r}
-#Import Graduation文件夹中的SRET.csv文件
+SRET <- read.csv(file_path2, stringsAsFactors = FALSE)
 SRET<-SRET%>%
   filter(ID!="phase_017_subj_13")
 write.csv(SRET,"SRET.csv")
 ```
+
+
 
 ```{r}
 col<-cor_SEE%>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
