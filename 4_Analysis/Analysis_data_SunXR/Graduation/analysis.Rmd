@@ -1,0 +1,2371 @@
+---
+title: "analysis_XR"
+output: html_document
+date: "2025-03-10"
+---
+#加载包
+```{r setup, include=FALSE}
+pacman::p_load("lme4","tidyverse","bruceR","ggplot2","ggridges","psych","psychTools","DataExplorer","ggsci","patchwork","cowplot","ggpubr","BayesFactor","careless","rticles"," TreeBUGS","igraph","brms","here","randomForest","bootnet")
+pacman::p_load("readxl","ggpubr","gghalves","qgraph","glasso","dynamicTreeCut",'corrplot',"magrittr","parameters","performance","nFactors","datawizard","lavaan")
+
+pacman::p_load("rsample","randomForest","ranger","caret","h2o","Metrics","dynamicTreeCut","EGAnet","psychTools")      
+# data splitting;basic implementation;a faster implementation of randomForest;
+#an aggregator package for performing many machine learning models
+# an extremely fast java-based platform
+```
+
+
+```{r}
+# 导入数据
+all_data <- read.csv("all_data.csv", stringsAsFactors = FALSE)
+
+# 删除ID列
+all_data_cleaned <- all_data %>%
+  select(-ID)
+
+#保存到新文件夹中
+
+output_folder <- "analysis_XR"
+output_file <- "all_data_cleaned.csv"
+output_path <- file.path(output_folder, output_file)
+
+write.csv(all_data_cleaned, output_path, row.names = FALSE)
+
+```
+
+
+```{r}
+#Import Graduation文件夹中的ALT2_all.csv文件
+ALT2_all<-ALT2_all%>%
+  filter(ID!="phase_017_subj_13")
+write.csv(ALT2_all,"ALT2_all.csv")
+```
+```{r}
+#Import Graduation文件夹中的SRET.csv文件
+SRET<-SRET%>%
+  filter(ID!="phase_017_subj_13")
+write.csv(SRET,"SRET.csv")
+```
+
+```{r}
+col<-cor_SEE%>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
+row<-cor_SEE%>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+
+#添加
+cor_matrix <- cor(col)
+corrplot::corrplot(cor_matrix)
+
+#ggplot(data.frame(cor_SEE), aes(colnames(col), colnames(row), fill = cor_SEE[, 1])) +
+  #geom_tile(color = "white") +
+  #scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  #theme_minimal() +
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  #labs(x = "任务", y = "量表", fill = "相关系数") +
+  #coord_fixed() # 确保x和y轴标签对齐
+```
+
+
+被试"phase_017_subj_13"的数据因脑岛技术意外缺失
+
+#数据加载
+```{r}
+#更改路径，需要文件：
+#day3_q_all.csv, SRET_all.csv, ALT1_all.csv, day0_all.csv, day1_q_all.csv, day2_q_all.csv, IAT_all.csv, ALT2_all.csv
+
+day3_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day3_q_all.csv")
+SRET<-read.csv("../../Analysis_data_Sunst/Graduation/SRET_all.csv")%>%
+  subset(., ID %in% day3_q_all$ID)
+ALT1_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT1_all.csv")%>%
+  subset(., ID %in% day3_q_all$ID)
+day0_all<-read.csv("../../Analysis_data_Sunst/Graduation/day0_all.csv")%>%
+  subset(., ID %in% day3_q_all$ID)
+day1_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day1_q_all.csv")%>%
+  subset(., ID %in% day3_q_all$ID)
+day2_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day2_q_all.csv")%>%
+  subset(., ID %in% day3_q_all$ID)
+IAT_all<-read.csv("../../Analysis_data_Sunst/Graduation/IAT_all.csv")%>%
+  subset(., ID %in% day3_q_all$ID)
+ALT2_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT2_all.csv")%>%
+  subset(., ID %in% day3_q_all$ID)
+```
+
+#数据预处理
+##问卷部分处理
+### 合并day0到day2的数据，结果包含每个被试在每个原始题目得分，以及各量表总分，包括人口学变量
+```{r}
+#day0t2_q.csv
+day0t2_q<- merge(day0_all, day1_q_all, by = "ID", all = TRUE) %>%
+   merge(day2_q_all, by = "ID", all = TRUE)%>%
+  mutate(    #总分计算
+    phq_al = rowSums(select(., starts_with("phq")), na.rm = TRUE),
+    gad_al = rowSums(select(., starts_with("gad")), na.rm = TRUE),
+    selfclarity_al = rowSums(select(., starts_with("selfclarity")), na.rm = TRUE),
+    ses_al = rowSums(select(., starts_with("ses")), na.rm = TRUE),
+    coreself_al =rowSums(select(., starts_with("coreself")), na.rm = TRUE),
+    SGPS_al = rowSums(select(., starts_with("SGPS")), na.rm = TRUE),
+    hsns_al = rowSums(select(., starts_with("hsns")), na.rm = TRUE),
+    NPI_al = rowSums(select(., starts_with("NPI")), na.rm = TRUE),
+    swb_al = rowSums(select(., starts_with("swb")), na.rm = TRUE),
+    LOT_al = rowSums(select(., starts_with("LOT")), na.rm = TRUE),
+    sde_al= rowSums(select(., starts_with("sde")), na.rm = TRUE),
+    IM_al= rowSums(select(., starts_with("IM")), na.rm = TRUE),
+    MorIden_al= rowSums(select(., starts_with("MorIden")), na.rm = TRUE),
+    moralSeImag_al= rowSums(select(., starts_with("moralSeImag")), na.rm = TRUE),
+    IPC_al = (rowSums(select(., starts_with("IPC")), na.rm = TRUE)+24) #以7分制评分，评分从-3（很不同意）到+3（很同意），计算时需要在原始总分基础上加上24分，分类表的分值范围为0 – 48
+  )%>%mutate(gad = case_when(
+    gad_al >= 0 & gad_al <= 4 ~ "无",
+    gad_al >= 5 & gad_al <= 9 ~ "轻度",
+    gad_al >= 10 & gad_al <= 14 ~ "中度",
+    gad_al >= 15 ~ "重度",
+    TRUE ~ NA_character_ ##为焦虑分级
+  ))%>%
+   mutate(phq = case_when(
+    phq_al >= 0 & phq_al <= 4 ~ "无",
+    phq_al >= 5 & phq_al <= 9 ~ "轻度",
+    phq_al >= 10 & phq_al <= 14 ~ "中度",
+    phq_al >= 15 & phq_al <= 19 ~ "中重度",
+     phq_al >= 20  ~ "重度",
+    TRUE ~ NA_character_ ##为抑郁分级
+  ))
+day0t2_q<-day0t2_q%>%
+  select(-c("X.x","No","ParticipantID.x","subj_idx","subj_name","X.1.x","X.y","ParticipantID.y","friend_name.x","trap1",
+"correct_answer","trap1_item","ParticipantID","trap2","trap2_item","friend_name.y","X.1.y"))%>%
+  rename(friend_sex=Sex)
+
+##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+day0t2_q<-day0t2_q%>%
+  filter(ID!="phase_017_subj_13")
+```
+
+### 包括day3原始条目得分，以及量表总分，包括领域自尊
+```{r}
+#day3_q_all.csv数据处理，处理后仍保存为day3_q_all.csv
+day3_q_all<-day3_q_all%>%
+  mutate(
+    phq_al = rowSums(select(., starts_with("phq")), na.rm = TRUE),
+    gad_al = rowSums(select(., starts_with("gad")), na.rm = TRUE),
+    selfclarity_al = rowSums(select(., starts_with("selfclarity")), na.rm = TRUE),
+    ses_al = rowSums(select(., starts_with("ses")), na.rm = TRUE),
+    coreself_al =rowSums(select(., starts_with("coreself")), na.rm = TRUE),
+    SGPS_al = rowSums(select(., starts_with("SGPS")), na.rm = TRUE),
+    hsns_al = rowSums(select(., starts_with("hsns")), na.rm = TRUE),
+    NPI_al = rowSums(select(., starts_with("NPI")), na.rm = TRUE),
+    swb_al = rowSums(select(., starts_with("swb")), na.rm = TRUE),
+    LOT_al = rowSums(select(., starts_with("LOT")), na.rm = TRUE),
+    sde_al= rowSums(select(., starts_with("sde")), na.rm = TRUE),
+    IM_al= rowSums(select(., starts_with("IM")), na.rm = TRUE),
+    MorIden_al= rowSums(select(., starts_with("MorIden")), na.rm = TRUE),
+    moralSeImag_al= rowSums(select(., starts_with("moralSeImag")), na.rm = TRUE),
+    IPC_al = (rowSums(select(., starts_with("IPC")), na.rm = TRUE)+24)
+  )%>%mutate(gad = case_when(
+    gad_al >= 0 & gad_al <= 4 ~ "无",
+    gad_al >= 5 & gad_al <= 9 ~ "轻度",
+    gad_al >= 10 & gad_al <= 14 ~ "中度",
+    gad_al >= 15 ~ "重度",
+    TRUE ~ NA_character_
+  ))%>%
+   mutate(phq = case_when(
+    phq_al >= 0 & phq_al <= 4 ~ "无",
+    phq_al >= 5 & phq_al <= 9 ~ "轻度",
+    phq_al >= 10 & phq_al <= 14 ~ "中度",
+    phq_al >= 15 & phq_al <= 19 ~ "中重度",
+     phq_al >= 20  ~ "重度",
+    TRUE ~ NA_character_
+  ))%>%
+   rename(Ability =domain_rating_1,##能力
+         Attraction=domain_rating_2,##身体吸引力
+         Wealth=domain_rating_3, ##物质财富
+         Social=domain_rating_4,##社交技能
+         Moral=domain_rating_5)%>%##道德
+mutate(domain_al=Ability+Attraction+Wealth+Social+Moral)
+
+day3_q_all<-day3_q_all%>%
+  select(-c("X","trap3", "ParticipantID", "trap3_item"))
+
+##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+day3_q_all<-day3_q_all%>%
+  filter(ID!="phase_017_subj_13")
+```
+
+###量表及问卷部分的描述统计【平均数，最大、最小值、skewness】
+
+```{r}
+#health_var
+health_var<-day3_q_all %>%
+  select(c("ID","SGPS_al","gad_al","phq_al","swb_al")) %>%
+  #mutate(#SGPS = ifelse(SGPS_al > mean(day3_q_all$SGPS_al), 1, 0),
+        # gad = ifelse(gad_al > 5, 1, 0),
+        # phq = ifelse(phq_al > 5, 1, 0),)%>%
+        # swb = ifelse(swb_al > mean(day3_q_all$swb_al), 1, 0),)%>%
+  rename(SGPS=SGPS_al,
+         SWB=swb_al,
+         gad=gad_al,
+         phq=phq_al)%>%
+ select(c("ID","SGPS","gad","phq","SWB"))
+```
+
+
+```{r}
+#day3_q_all.csv
+day3_q_all%>%
+  merge(day0t2_q%>%select(ID,age,obj_ses1,fri_ses2,income), by = "ID", all = TRUE)%>%
+  mutate(SES=obj_ses1+fri_ses2)%>%
+  select(age,obj_ses1,fri_ses2,income,phq_al,gad_al,selfclarity_al,ses_al,coreself_al,SGPS_al,hsns_al,NPI_al,swb_al,LOT_al,sde_al,IM_al,MorIden_al,moralSeImag_al,IPC_al,domain_al,SES)%>%
+Describe(.,file="day0t3_q_descrip.doc")#education,national,sex,fatherEdu,FatherOccupation,motherEdu,MotherOccupation,
+
+```
+####计数的频数，百分比
+```{r}
+#day0t2_q.csv
+day0t2_q_des<-day0t2_q%>%
+  select(sex,education,national,age,fatherEdu,FatherOccupation,motherEdu,MotherOccupation,gad,phq,income)%>%#0男，1女
+  mutate(
+    age=case_when(
+          between(age, 18, 28) ~ "18~28",
+          between(age, 28, 38) ~ "28~38",
+           between(age, 38, 48) ~ "38~48",
+          between(age, 48, 59) ~ "48~59",
+          age>59~ ">59",
+          TRUE ~ as.character(age) 
+        ),
+        sex=case_when(
+          sex==0~"男",
+          sex==1~"女",
+          TRUE ~ as.character(sex) 
+        ) ) %>%
+ mutate(fatherEdu = case_when(
+    fatherEdu == 0 ~ "没上过学",
+    fatherEdu == 1 ~ "小学",
+    fatherEdu == 2 ~ "初中",
+    fatherEdu == 3 ~ "高中或中专",
+    fatherEdu == 4 ~ "专科或本科",
+    fatherEdu == 5 ~ "研究生",
+    TRUE ~ as.character(fatherEdu)  # 如果没有匹配到上述条件，保持不变
+  ))%>%
+  mutate(motherEdu = case_when(
+    motherEdu == 0 ~ "没上过学",#
+    motherEdu == 1 ~ "小学",#
+    motherEdu == 2 ~ "初中",#
+    motherEdu == 3 ~ "高中或中专",#
+    motherEdu == 4 ~ "专科或本科",#大学（）
+    motherEdu == 5 ~ "研究生",#
+    TRUE ~ as.character(motherEdu)  # 如果没有匹配到上述条件，保持不变
+  ))%>%
+  mutate(FatherOccupation = case_when(
+    FatherOccupation == 0 ~ "临时工",
+    FatherOccupation == 1 ~ "个体经营",
+    FatherOccupation == 2 ~ "一般管理",
+    FatherOccupation == 3 ~ "中层管理",
+    FatherOccupation == 4 ~ "高级管理",
+    TRUE ~ as.character(FatherOccupation)  # 如果没有匹配到上述条件，保持不变
+  ))%>%
+  mutate(MotherOccupation = case_when(
+    MotherOccupation == 0 ~ "临时工",
+    MotherOccupation == 1 ~ "个体经营",
+    MotherOccupation == 2 ~ "一般管理",
+    MotherOccupation == 3 ~ "中层管理",
+    MotherOccupation == 4 ~ "高级管理",
+    TRUE ~ as.character(MotherOccupation)  # 如果没有匹配到上述条件，保持不变
+  ))%>%
+  mutate(income = case_when(
+    income == 0 ~ "zero",
+    income < 2000 ~ "<2000",
+    between(income, 2000, 5000) ~ "2000~5000",
+    between(income, 5000, 10000) ~ "5000~10000",
+    between(income, 10000, 30000) ~ "10000~30000",
+    between(income, 30000, 50000) ~ "30000~50000",
+    between(income, 50000, 100000) ~ "50000~100000",
+    between(income, 100000, 150000) ~ "100000~150000",
+    between(income, 150000, 200000) ~ "150000~200000",
+    income >= 200000 ~ "≥200000",
+    TRUE ~ as.character(income)  # 如果没有匹配的条件，保持不变
+  )) %>%
+  mutate(national = ifelse(str_detect(national, "汉族"), "汉族", national),
+         education = ifelse(str_detect(education, "本科"), "本科", education),
+         education = ifelse(str_detect(education, "硕士"), "硕士", education))
+
+freq_variable<- function(data, func, ...) {
+  results <- list()
+  for (var in names(data)) {
+    # 调用func函数，并将结果存储在列表中
+    result <- do.call(func, c(list(x = data[[var]], varname = var), ...))
+    results[[var]] <- result
+  }
+ 
+}
+# 使用apply_to_each_variable函数对day0t2_q_des中的每个变量应用Freq函数
+freq_results <- freq_variable(day0t2_q_des, Freq)
+```
+```{r}
+day0t2_q %>%
+  filter(income >= 10000 & income < 20000) %>%
+  count()
+```
+
+###内部一致性
+
+*题源：陈艳霞，（2021），自我关注与大学生社交焦虑的关系,
+Campbell（1996），原版
+翻译版：牛更枫（2016），青少年社交网站使用对自我概念清晰性的影响:社会比较的中介作用，该问卷共 12 个项目来测量个体自我概念的 清晰性和一致性（如，“我对自己的一些看法经常 相互冲突”）。该量表使用 5 点计分法，1 表示“完全不符”，5 表示“完全符合”，共 12 题，其中 6、11 采用正向计分题，其余题目均需反向计分。最终总分越高说明自我概念清晰性越高。徐海玲（2007）在其研究中使用过该量表，发现该量表信效度良好。该量表在冯泽雨（2010）相关研究中，也具备良好的信效度。本研究中该量表的 Cronbach's a 系数是 0.846。
+*
+```{r 内部一致性}
+Alpha(day3_q_all, "selfclarity_", 1:12) 
+```
+* 采用卞崔冬等(2009)翻译的中文版抑郁障碍量表（PHQ-9），
+回答种类包括“完全不会”、“几日”、“一半以上的日子”、及“几乎每日”分别相对应0、1、2、3分值。
+PHQ-9总分值范围从0～27分。分值5、10、15、20分别相对应代表轻、中、中重、重度抑郁分界值。
+*
+```{r}
+Alpha(day3_q_all, "phq_", 1:9) 
+```
+* 采用何筱衍等人(2010)翻译的中文版的广泛性焦虑量表（GAD-7），它的内部一致性α系数为0.898，初次测评后的7~14天内的重测信度为0.856。
+回答种类“完全不会”、“好几天”、“一半以上的天数”和“几乎每天”分别相对应 0、1、2、3分。
+GAD-7总分范围为0～21分。分值 5、10、15分别对应代表“轻度”、“中度”、“重度”焦虑程度分界值。
+*
+```{r}
+Alpha(day3_q_all, "gad_", 1:7) 
+```
+* 单维生活满意度量表，由 Diener 等人（1985）编制，一共包含五个项目，采用里克特五点量表评定法。从 1 到 7 分别表示非常不同意、不同意、有点不同意、中立、有点同意、
+同意和非常同意。得分之和即为个体总的生活满意度。得分越高，说明个体对自己的生活越满意。内部一致性系数 R 在 0.61~0.81 之间，证明量表拥有良好的信效度（Diener, 1985）。
+本研究中，生活满意度总量表信度为 0.855。(陈振圻, 2020)
+
+*
+```{r}
+Alpha(day3_q_all, "swb_", 1:5) 
+```
+* 采用温娟娟等(2007)修订的中文版“生活取向测验修订版（LOT-R）”，测验包含6个条目，乐观与悲观两个维度，使用李克特五点评分（1 = 非常不同意，2 = 不同意，3 = 不确定，4 = 同意，5 = 非常同意）。乐观倾向维度有 3 个条目，得分越高个体的乐观倾向越高；悲观倾向维度有 3 个条目，得分越高个体的悲观倾向越高。将 悲观维度反向计分后与乐观维度得分相加得到个体乐观人格总分，得分越高越乐观。修订后的量表具有较好的信度和效度，内部一致性 Cronbach α 为 0.78，重测信度为 0.79， 与 LOT 的相关系数为 0.95。
+题源：高校教师工作压力、乐观人格、心理控制源与睡 眠质量的关系
+*
+```{r}
+Alpha(day3_q_all, "LOT_", 1:6) 
+```
+
+* Levenson (1981)设计了“内控 、权威和机遇控制定向量表”简称IPC量表。其中内控性（I）量表测量人们相信自己把握个人生活的程度。
+内控性分量表包含8个条目，以7分制评分，评分从-3（很不同意）到+3（很同意），计算时需要在原始总分基础上加上24分，分类表的分值范围为0 – 48。
+内控性分量表Kuder-Richardson信度为0.64  (汪向东, 1999)，它的四周后的重测信度为0.8 (肖莉 & 陈仲庚, 1989)。
+*
+```{r}
+Alpha(day3_q_all, "IPC_", 1:8) 
+```
+
+*原版：
+Rosenberg, M. (1965). Rosenberg self-esteem scale (RSE). Acceptance and commitment therapy. Measures package, 61(52), 18.
+孙钦铃（2007）自尊量表的修订P26,修改了两个条目，先前研究表明原版条目8有争议，条目9,10疑似重复
+由Rosenberg (1965)编制的罗森伯格自尊量表 (Rosenberg Self-Esteem Scale)。本研究采用孙钦铃(2007)修订的中文版Self-Esteem scale（SES），该量表共10个4点计分条目，包含5个反向计分与5个正向计分条目，用以评定自我价值与自我接纳的总体感受，从而测量受测者的自尊水平，具体计分方式为：1代表很不符合；2代表不符合；3代表符合；4代表非常符合。分数越高表明受测者自尊水平越高，Cronbach α 系数为 0. 835，两周后对29名被试的重测信度为0.655。
+*
+```{r}
+Alpha(day3_q_all, "ses_", 1:10) 
+```
+*CSES,Judge,2003原版12题，r:reversed-score
+杜建政,(2012)核心自我评价的结构验证及其量表修订,模型 3 是单因素模型，但只有删除项 目 A3 和 A9 后的 10 个项目负荷在单一因素上。
+总分的范围为10-50分，分数越高说明被测者核心自我评价水平越高。该量表的内部一致性系数为0.83，分半信度为0.84，时隔3周的重测信度为0.82(N=70)
+ 大学生核心自我评价对创业意向的影响，[D]. 侯静怡.河南大学,2018（题目在此找到）
+```{r}
+Alpha(day3_q_all, "coreself_", 1:10) 
+```
+* 张亚利等(2020)的中文翻译版的简版一般拖延量表（Short General Procrastination Scale，SGPS），由 9 个题目构成，属单维度测验，其中 3 个题目为反向计分。
+题目采用李克特5 点计分（非常不符合~非常符合）。总分越高表明拖延倾向越明显。中文版的内部一致性信度为0.87，8周后的重测信度为0.77。
+*
+```{r}
+Alpha(day3_q_all, "SGPS_", 1:9) 
+```
+*由Ames（2006）编制，原量表有16道题目，本研究采用王晓燕(2008)修订的中文版，修订过程发现条目6在中国被试中区分效度较低，故删除，修订后全量表15题，NPI是一个采用二择一的强迫选择形式的自评问卷,内容涉及自我评价、行为方式,NPI的全量表分数代表自恋的显性维度,得分范围是从0到15,分数越高显性自恋水平越高。
+*
+```{r}
+Alpha(day3_q_all, "NPI", 1:15) 
+```
+采用过度敏感自恋量表。本研究所使用的过度敏感自恋量表（Hypersensitivity Narcissistic Scale）为单因素结构自评问卷，共10个项目，内容涉及到自我评价、自我行为倾向。采用Likert 5 点式评分法 ，从 “不符合”到 “符合”分别为1分和5分 。 它反映了过度敏感性和脆弱性。Hendin和Cheek(1997) 报告，HSNS的α系数为0. 76。HSNS的全量表分数代表自恋的隐性维度，得分范围是从 10 到 50 分，分数越高隐性自恋水平越高 。
+```{r}
+Alpha(day3_q_all, "hsns_", 1:10) 
+```
+该量表来源于Aquino (2002)等人编制的道德同一性量表（moral identity scale），该量表具有良好的信效度，α=0.83。万增奎修订后的中文版α=0.85，内隐维度α=0.83，外显维度α=0.74。中文版的道德同一性量表包括10道题，其中1,2,4,7,10为内隐维度，3，5，6,8,9为外显维度，采用5点计分，-2=“完全不同意”，-1=“有些不同意”，0=“中立”，1=“有些同意”。2=“完全同意”。
+```{r}
+Alpha(day3_q_all, "MorIden_", 1:10) 
+```
+本研究采用刘青兰等 (2020)翻译的道德自我形象量表（moral self-image scale）(Jordan et al., 2015)，中文版的α= 0.88，该量表共9个9点计分条目，要求受测者判断有关道德形象的陈述与自己相符的程度，测量受测者的道德自我形象，总分的范围为9-81分，具体计分方式为：1代表远没有达到受测者想达到的程度；5代表完全与受测者想要达到的程度相同；9代表远高于受测者想要达到的程度。
+```{r}
+Alpha(day3_q_all, "moralSeImag_", 1:9) 
+```
+期待性回答平衡问卷：Paulhus (1988)编制期待性回答平衡问卷（BIDR） , 问卷包括自欺性拔高（SDE）和操纵印象（IM），两个量表合并的总分代表社会期望性回答（SDR），SDE的α系数为0.68-0.80，IM的α系数为0.75-0.86，两个量表的总分的α系数为0.83(汪向东等, 1999)。
+```{r}
+Alpha(day3_q_all, "sde_", 1:20) 
+```
+```{r}
+Alpha(day3_q_all, "IM_", 1:20) 
+```
+领域自尊：采用MacDonald等(2003)编制的领域自评量表测量被试对自我在特殊领域的社会信念。被试需要判断与同龄人相比，自己处于哪个水平，量表共包含5个条目，涉及能力，身体吸引，物质财富，社交能力，道德五个领域，评分从1-12，1代表非常低，12代表非常高，该问卷的信度为0.76
+```{r}
+Alpha(day3_q_all, vars =c("Ability","Attraction","Wealth","Social","Moral") )
+```
+```{r}
+Alpha(day0t2_q, vars =c("obj_ses1","fri_ses2")) 
+```
+
+####test-retest 计算问卷中每个原始条目的
+
+```{r}
+select_and_rbind <- function(df1, df2 ){
+  # 合并两个数据集
+df1<-df1%>%
+  mutate(time=1)
+df2<-df2%>%
+  mutate(time=2)
+  # 使用函数来合并day0t2_q和day3_q_all数据框
+pattern <- "^ID$|^time$|^phq|^gad|^SGPS|^IM|^sde|^ses|^swb|^NPI|^LOT|^IPC|^hsns|^selfclarity|^coreself|^MorIden|^moralSeImag"
+  # 使用grep函数和pattern参数来选择匹配的列
+  selected_columns_df1 <- grep(pattern, names(df1), value = TRUE)
+  selected_columns_df2 <- grep(pattern, names(df2), value = TRUE)
+  
+  # 根据选中的列创建新的数据框
+  selected_df1 <- df1[, c(selected_columns_df1)]
+
+  selected_df2 <- df2[, c(selected_columns_df2)]
+  
+  # 使用rbind函数将两个数据框合并在一起
+  combined_df <- rbind(selected_df1, selected_df2)
+  
+  return(combined_df)
+}
+
+
+day0t3_q <- select_and_rbind(day0t2_q, day3_q_all)####包含原始条目，量表总分，以及time列
+
+```
+```{r}
+
+testRetest(as.data.frame(day0t3_q), select = c("gad_1", "gad_2","gad_3","gad_4","gad_5","gad_6","gad_7"))
+```
+
+```{r}
+testRetest(as.data.frame(day0t3_q), select = c("coreself_1", "coreself_2","coreself_3","coreself_4","coreself_5","coreself_6","coreself_7","coreself_8","coreself_9","coreself_10"))
+```
+
+
+```{r}
+testRetest(as.data.frame(day0t3_q), select = c("ses_1", "ses_2","ses_3","ses_4","ses_5","ses_6","ses_7","ses_8","ses_9","ses_10"))
+```
+
+
+
+###计算前后测总分的相关作为重测信度
+```{r 计算前后测的皮尔逊积差相关，重测信度}
+
+cor_testretest <- function(df1, df2) {
+  questionnaires <- c("IPC_al", "LOT_al", "swb_al", "NPI_al", "hsns_al", "SGPS_al", "coreself_al", "ses_al", "selfclarity_al", "gad_al", "phq_al","MorIden_al","moralSeImag_al","sde_al","IM_al")
+  
+  # 存储计算的重测信度
+  reliabilities <- data.frame(questionnaire = character(0), reliability = numeric(0))
+  
+  for (questionnaire in questionnaires) {
+    # 选择两次测量的数据
+    data1 <- df1[, c("ID", questionnaire)]
+    data2 <- df2[, c("ID", questionnaire)]
+    
+    # 合并数据框
+    combined_data <- merge(data1, data2, by = "ID", suffixes = c("_1", "_2"))
+    
+    # 计算重测信度，利用pearson积差相关
+    reliability <- cor(combined_data[, paste(questionnaire, "_1", sep = "")], combined_data[, paste(questionnaire, "_2", sep = "")], method = "pearson", use = "pairwise")
+    
+    # 将相关系数转换为两位小数的数值
+    formatted_reliability <- sprintf("%.2f", reliability)
+    
+    # 存储结果
+    reliabilities <- rbind(reliabilities, data.frame(questionnaire = questionnaire, reliability = as.numeric(formatted_reliability)))
+  }
+  
+  # 输出重测信度
+  print(reliabilities)
+}
+
+test_retest <- cor_testretest(day0t2_q, day3_q_all)
+
+```
+
+
+##行为任务
+###IAT
+##Built-in error penalty procedure (preferred) Each trial’s latency is recorded to occurrence of the trial’s correct response; trials on which errors preceded the correct responses are included
+##IAT only 3,4,6,7 block，区分联合任务为A相容,B;不相容;e.g. 3=A1,4=A2
+  -   ① Designate combined tasks as A (for which faster performance will produce a positive score) and B (for which faster performance will produce a negative score). With counterbalancing, half of subjects will encounter A in Blocks 3 & 4, half in Blocks 6 & 7
+  -   ②Discard all trials in Blocks 1, 2, and 5
+  -   ③Identify blocks for combined task A as A1 and A2; those for combined task B as B1 and B2. If task A is Blocks 3 & 4, Block 3 is A1, Block 4 is A2
+# ④Eliminate from remaining data (Blocks 3, 4, 6, and 7) only trials with latencies > 10,000 ms
+# ⑤Eliminate all subjects for whom more than 10% of remaining trials have latencies faster than 300 ms
+# ⑥Compute latency means (MnA1, MnA2, MnB1, MnB2) and SDs (SDA1, SDA2, SDB1, SDB2) for each of the four blocks for all remaining trials
+# ⑦Compute two mean latency differences: B1–A1 = (MnB1 – MnA1) and B2–A2 = (MnB2 – MnA2)
+# ⑧Compute an inclusive (not pooled) SD1 using all latencies in Blocks A1 & B1; another (SD2) using all latencies for A2 & B2 (SD2). These can be computed from means and SDs from Step 6 as shown in the lines below this table
+
+# ⑨(B1-A1)/SD1,(B2-A2)/SD2
+# ⑩D =  [(B1-A1)/SD1+(B2-A2)/SD2]/2
+
+绝对值：0.2 = 小效应，0.5 = 中等效应，0.8 = 大效应
+
+```{r IAT}
+##数据预处理，区分相容与不相容的block
+#IAT_all.csv,生成IAT_data, IAT_data1, 
+IAT_data <- IAT_all%>%
+  mutate(ID = as.character(ID)) %>%
+  mutate(ParticipantID = as.character(ParticipantID)) %>%
+  mutate(rt=as.numeric(rt))%>%
+  group_by(ID) %>%
+  mutate(###将block进行领域分类，分成“道德”和“能力”
+    version_attrib = case_when(
+      task_id == "ability"~ (version_attrib[response == "0"& !is.na(version_attrib)]),
+      TRUE ~ version_attrib),
+    version_target = case_when(
+      task_id == "ability"~ (version_target[response == "0"& !is.na(version_target)]),
+      TRUE ~ version_target),
+    version_attrib2 = case_when(
+      task_id == "moral"~ (version_attrib2[response == "0"& !is.na(version_attrib2)]),
+      TRUE ~ version_attrib2),
+    version_target2 = case_when(
+      task_id == "moral"~ (version_target2[response == "0"& !is.na(version_target2)]),
+      TRUE ~ version_target2))%>%
+  mutate(version = NA)%>%
+  mutate(### 相容为A，不相容为B，练习阶段为1，正式为2
+    version = case_when(
+    version_attrib == version_target & task_id == "ability" & screen_id == 3 ~ "A1",
+    version_attrib == version_target & task_id == "ability" & screen_id == 4 ~ "A2",
+    version_attrib == version_target & task_id == "ability" & screen_id == 6 ~ "B1",
+    version_attrib == version_target & task_id == "ability" & screen_id == 7 ~ "B2",
+    
+    version_attrib != version_target & task_id == "ability" & screen_id == 3 ~ "B1",
+    version_attrib != version_target & task_id == "ability" & screen_id == 4 ~ "B2",
+    version_attrib != version_target & task_id == "ability" & screen_id == 6 ~ "A1",
+    version_attrib != version_target & task_id == "ability" & screen_id == 7 ~ "A2",
+    
+    version_attrib2 == version_target2 & task_id == "moral" & screen_id == 3 ~ "A1",
+    version_attrib2 == version_target2 & task_id == "moral" & screen_id == 4 ~ "A2",
+    version_attrib2 == version_target2 & task_id == "moral" & screen_id == 6 ~ "B1",
+    version_attrib2 == version_target2 & task_id == "moral" & screen_id == 7 ~ "B2",
+    
+    version_attrib2 != version_target2 & task_id == "moral" & screen_id == 3 ~ "B1",
+    version_attrib2 != version_target2 & task_id == "moral" & screen_id == 4 ~ "B2",
+    version_attrib2 != version_target2 & task_id == "moral" & screen_id == 6 ~ "A1",
+    version_attrib2 != version_target2 & task_id == "moral" & screen_id == 7 ~ "A2",
+      TRUE ~ version  # 如果没有满足条件的情况，保持原值
+    )) %>%
+    filter(screen_id %in% c(3, 4, 6, 7)) %>%
+  filter(rt<=10000)%>%
+   mutate(
+    block_type = case_when(
+      version %in% c("A1", "A2") ~ "compatible",
+      version %in% c("B1", "B2") ~ "incompatible",))%>%
+  mutate(con = case_when(
+    block_type == "compatible" & condition %in% c("other", "negative") ~ "消极_朋友",
+    block_type == "compatible" & condition %in% c("self", "positive") ~ "积极_自我",
+    block_type == "incompatible" & condition %in% c("other", "positive") ~ "积极_朋友",
+    block_type == "incompatible" & condition %in% c("self", "negative") ~ "消极_自我"
+  ))
+
+####计算出原始数据的均值，标准差
+  IAT_data1<-IAT_data%>%
+    group_by(ID,task_id,block_type,version) %>%  ##condition是4类标签的，task_id是moral和ability，version是A1,A2,B1,B2
+  summarize(
+    mean_rt = mean(rt),
+    sd_rt = sd(rt),
+    row_n = n(),
+    se_rt = sd(rt) / sqrt(row_n))
+print(IAT_data1)
+
+##将错误的试次的反应时替换为平均反应时+600 ms
+IAT_data<-IAT_data%>%
+  left_join(IAT_data1%>%select(ID,task_id,block_type,version,mean_rt),by=c("ID","task_id","block_type","version"))%>%
+  mutate(rt=ifelse(correct=="false",mean_rt+600,rt))
+
+###计算取代完错误试次后的数据的均值，标准差
+ IAT_data1<-IAT_data%>%
+    group_by(ID,task_id,block_type,version) %>%  ##condition是4类标签的，task_id是moral和ability，version是A1,A2,B1,B2
+  summarize(
+    mean_rt = mean(rt),
+    sd_rt = sd(rt),
+    row_n = n(),
+    se_rt = sd(rt) / sqrt(row_n))
+ ## IAT_data1用于计算d值，IAT_data包括原始的相容（积极-自我，消极-朋友）与不相容（积极-朋友，消极-自我）
+```
+
+
+####IAT指标提取
+```{r IAT的D值计算}
+#根据IAT_data1生成数据IAT_data_D2
+IAT_data_D<-IAT_data1%>%
+  ungroup()%>%
+  select(-c("block_type","se_rt"))%>%
+  pivot_wider(names_from = version, values_from = c(mean_rt, sd_rt,row_n)) %>%
+  group_by(ID,task_id) %>% #task_id是领域(moral,ability)   #ID,version
+  reframe(
+    diff_B1A1 = round((mean_rt_B1 - mean_rt_A1), digits = 3),
+    diff_B2A2 =round(( mean_rt_B2 - mean_rt_A2), digits = 3),
+    SD_B1A1 = round((sqrt((((row_n_A1-1)*(sd_rt_A1^2)+(row_n_B1-1)*(sd_rt_B1^2))+((row_n_A1+row_n_B1)*((mean_rt_A1-mean_rt_B1)^2)/4))/(row_n_A1+row_n_B1-1))), digits = 3),
+    SD_B2A2 = round((sqrt((((row_n_A2-1)*(sd_rt_A2^2)+(row_n_B2-1)*(sd_rt_B2^2))+((row_n_A2+row_n_B2)*((mean_rt_A2-mean_rt_B2)^2)/4))/(row_n_A2+row_n_B2-1))), digits = 3),
+     D= round(((diff_B1A1/SD_B1A1) + (diff_B2A2/SD_B2A2))/2, digits = 3)
+    )%>%
+mutate(
+    effect = case_when(
+      abs(D) <= 0.2 ~ "small",
+      abs(D) <= 0.5 ~ "mid",
+      TRUE ~ "big")) #分为moral，ability两个领域的IAT_D
+print(IAT_data_D)
+IAT_data_D<-IAT_data_D%>%
+  rename(domain=task_id,IAT_SE=D)
+
+IAT_data_D<-IAT_data_D%>%
+  select(ID,domain,IAT_SE)%>%
+  pivot_wider(names_from = domain,values_from = IAT_SE)%>%
+  rename(moral_IAT=moral,
+         ability_IAT=ability)
+
+##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+##修改：将计算完成的IAT_data_中的"phase_017_subj_13"去除并保存为IAT_data_D2
+IAT_data_D2<-IAT_data_D%>%
+  filter(ID!="phase_017_subj_13")
+```
+
+###ALT指标提取
+```{r ALT2数据选择}
+#ALT2_all.csv
+ALT2_all <- ALT2_all%>%mutate(ID = as.character(ID)) %>%
+   mutate(ParticipantID = as.character(ParticipantID)) %>%
+  mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
+  filter(screen_id%in%c("ability","moral"))%>%#选择正式实验的数据
+  mutate(correct = ifelse(is.na(correct), 0, correct))%>%
+  filter(rt>=200 & rt <=1200)#筛出反应时在200~1200
+```
+
+
+
+```{r}
+#根据ALT2_all.csv生成ALT2_rt
+ALT2_rt <-ALT2_all%>% 
+     filter(identity=="match")%>%
+  select(ID,domain,valence,person,Image,rt,correct) %>%  #按被试与条件分组
+  group_by(ID,domain,valence,person) %>%  #按被试与条件分组
+  summarise(
+    avg_rt = mean(rt, na.rm = TRUE))%>%
+  filter(valence=="positive")%>% # only in positive
+pivot_wider(names_from = person,values_from = avg_rt)%>%
+  mutate(ALT_SE_rt=friend-self)%>%
+ungroup()%>%
+  select(ID,domain,ALT_SE_rt)%>%
+  pivot_wider(names_from = domain,values_from = ALT_SE_rt)%>%
+  rename(moral_ALT_rt=moral,
+         ability_ALT_rt=ability)
+
+head(ALT2_rt)
+##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+ALT2_rt<-ALT2_rt%>%
+  filter(ID!="phase_017_subj_13")
+```
+
+```{r}
+#根据ALT2_all.csv生成ALT2_dprime
+ALT2_dprime<-ALT2_all%>%
+   group_by(ID,domain,valence,person) %>%  #按被试与条件分组
+  filter(valence=="positive")%>%# only in positive
+      dplyr::mutate(
+                sdt = dplyr::case_when(
+                        (correct== 1 & identity == 'match') ~ "hit",# "match"condition,correct response
+                        (correct == 1 & identity == 'nonmatch') ~ "CR",
+                        (correct == 0 & identity == 'match') ~ "miss",
+                        (correct == 0 & identity == 'nonmatch') ~ "FA"))%>%
+   summarize( 
+      hit = sum(sdt == "hit"),#count
+     miss = sum(sdt == "miss"),
+      FA = sum(sdt == "FA"),
+      CR = sum(sdt == "CR"), ) %>%
+    dplyr::mutate(hitR = hit/(hit + miss),                                     # hit rate
+                      FAR  = FA/(FA+CR)) %>%                                       # fa rate
+        dplyr::mutate(hitR = ifelse(hitR == 1, 1 - 1/(2*(hit + miss)), hitR),      # if hit rate is 1, standardize it
+                      FAR  = ifelse(FAR == 0, 1/(2*(hit + miss)), FAR)) %>%        # if FA rate is 0, standardize it
+        dplyr::mutate(dprime = qnorm(hitR) - qnorm(FAR))%>%
+  select(ID,domain,valence,person,dprime)%>%
+  pivot_wider(names_from = person,values_from = dprime)%>%
+  mutate(ALT_SE_d=self-friend)%>%
+  ungroup()%>%
+   select(ID,domain,ALT_SE_d)%>%
+  pivot_wider(names_from = domain,values_from = ALT_SE_d)%>%
+  rename(moral_ALT_d=moral,
+         ability_ALT_d=ability)
+head(ALT2_dprime)
+##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+ALT2_dprime<-ALT2_dprime%>%
+  filter(ID!="phase_017_subj_13")
+```
+
+
+###SRET
+```{r 修正数据}
+# 选择ID为phase_016_subj_84和phase_016_subj_85的数据，以下步骤均在修正他们的RJ_formal1
+selected_SRET <- SRET %>%
+  filter(ID %in% c("phase_016_subj_84", "phase_016_subj_85")) %>%
+  filter(screen_id == "EW_formal")%>%
+filter(!word %in% c("务实", "迷糊", "坚贞", "说谎", "主见", "缓慢", "素养", "低俗"))  %>%
+  mutate(person = ifelse(person == "自己", "self",
+                          ifelse(person == "朋友", "friend", person)))%>%
+  select(ID,person,word)
+# 选择screen_id为"RJ_formal1"的行
+SRET_update <- SRET %>%
+  filter(screen_id == "RJ_formal1") %>%
+   filter(!word %in% c("严谨", "认真", "刻板", "白痴", "忠实", "宽宏", "徇私", "可鄙"))%>% 
+  mutate(person = ifelse(ID %in% c("phase_016_subj_84", "phase_016_subj_85"),
+                          selected_SRET$person, person))
+selected2_SRET <- SRET %>%
+  filter(screen_id == "RJ_formal_2") %>%
+  select(c("ID", "word",  "identity")) %>%
+  rename(person2 = identity)%>%
+  filter(!is.na(person2))
+
+ SRET_update <- SRET_update %>%
+  filter(screen_id %in% c("RJ_formal1")) %>%
+  left_join(., selected2_SRET, by = c("ID", "word")) %>%
+  mutate(person = ifelse(is.na(person), selected2_SRET$person2, person))
+SRET_update <-SRET_update%>%
+  select(-person2)
+
+
+SRET.0<-SRET %>%
+  filter(screen_id != "RJ_formal1" )#%>%
+#unique(SRET.0$screen_id)%>%
+
+  SRET.0<-rbind(SRET.0,SRET_update)
+  
+   SRET.0<-SRET.0%>%
+   filter(screen_id%in%c("EW_formal","RJ_formal1","RJ_formal_2"))
+ write.csv(SRET.0,"SRET_all.csv")
+ 
+ ###修正后的数据仅包括"EW_formal","RJ_formal1","RJ_formal_2"；其中"RJ_formal1"已扣除练习试次
+ 
+
+```
+
+####SRET指标提取
+```{r}
+
+SRET_EW<-SRET.0 %>%
+  mutate(ID = as.character(ID)) %>%
+ # mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
+  mutate(correct= as.numeric(correct))%>% ##重编码correct
+  filter(screen_id%in%c("EW_formal") )%>% #选择正式实验的数据
+   filter(!word %in% c("务实", "迷糊", "坚贞", "说谎", "主见", "缓慢", "素养", "低俗"))%>% #筛除首尾的干扰词
+ 
+ #每个被试在 person(self,friend) * valence(positive,negative) * domain(ability,moral)的词汇评估的按'yes'比例 
+
+  mutate(con = paste(valence, person, sep = "_"))%>%
+  group_by(ID,con,domain)%>%
+  summarize(N_Yes = sum(responses == "yes"),
+            N_No = sum(responses == "no"))%>%
+  ungroup()%>%
+ select(ID,domain,N_Yes,con)%>%
+  pivot_wider(
+    names_from = con,  # con列的值将成为新列的名称
+    values_from = N_Yes,  # N_Yes列的值将填充到新列中
+    values_fill = list(N_Yes = 0)  # 如果没有值，则填充为0
+  )%>%
+ group_by(ID,domain)%>%
+  mutate(SRET_SE=Positive_self-Negative_self)%>%
+  select(ID,domain,SRET_SE)%>%
+  pivot_wider(names_from = domain,values_from = SRET_SE)%>%
+  rename(moral_SRET_EW=morality,
+         ability_SRET_EW=ability)
+
+##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+SRET_EW<-SRET_EW%>%
+  filter(ID!="phase_017_subj_13")
+```
+
+
+```{r}
+SRET_rt<-SRET.0 %>%
+  mutate(ID = as.character(ID)) %>%
+ # mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
+  mutate(correct= as.numeric(correct))%>% ##重编码correct
+  filter(screen_id%in%c("EW_formal") )%>% #选择正式实验的数据
+   filter(!word %in% c("务实", "迷糊", "坚贞", "说谎", "主见", "缓慢", "素养", "低俗"))%>% #筛除首尾的干扰词
+ 
+ #每个被试在 person(self,friend) * valence(positive,negative) * domain(ability,moral)的词汇评估的按'yes'比例 
+
+  mutate(con = paste(valence, person, sep = "_"))%>%
+  group_by(ID,con,domain)%>%
+  summarize( avg_rt = mean(rt, na.rm = TRUE),)%>%
+  ungroup()%>%
+ select(ID,domain,avg_rt,con)%>%
+  pivot_wider(
+    names_from = con,  # con列的值将成为新列的名称
+    values_from = avg_rt,  # N_Yes列的值将填充到新列中
+    values_fill = list(avg_rt = 0)  # 如果没有值，则填充为0
+  )%>%
+ group_by(ID,domain)%>%
+  mutate(SRET_SE=Negative_self-Positive_self)%>%
+  select(ID,domain,SRET_SE)%>%
+  pivot_wider(names_from = domain,values_from = SRET_SE)%>%
+  rename(moral_SRET_rt=morality,
+         ability_SRET_rt=ability)
+
+##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+SRET_rt<-SRET_rt%>%
+  filter(ID!="phase_017_subj_13")
+```
+
+```{r 新旧词判断}
+SRET_RJ <- SRET.0 %>%
+     filter(screen_id %in% c("RJ_formal1")) %>%
+      filter(!word %in% c("严谨", "认真", "刻板", "白痴", "忠实", "宽宏", "徇私", "可鄙"))%>% 
+     mutate(correct = ifelse(correct != 1, 0, correct))%>%
+    mutate(ID = as.character(ID),
+           rt = as.numeric(rt),
+           correct = as.numeric(correct))  %>%
+    mutate(sdt = case_when((identity == "old" & (responses %in% c("familiar", "old"))) ~ "hit",
+                          (identity == "old" & (responses == "new" )) ~ "miss",
+                          (identity == "new" & (responses %in% c("familiar", "old"))) ~ "fa",
+                          (identity == "new" & (responses == "new")) ~ "cr"),) %>%
+   group_by(ID,domain, valence,person) %>%
+    filter(!is.na(person))%>%
+    summarize( 
+      H = sum(sdt == "hit"),
+      M = sum(sdt == "miss"),
+      FA = sum(sdt == "fa"),#根据RJ_formal2判断，本身是new，但是被判断为self/friend
+      CR = 10-FA,
+      new= sum(responses %in% c("new")),#按键为新词
+      old=sum(responses %in% c("old")),
+      familiar=sum(responses %in% c("familiar")),
+    ) %>%
+    mutate(
+      P_H = (H+0.5)/(H+M+1), # if hit rate is 1, standardize it    P_H = ifelse(P_H == 1, 1 - 1 / (2 * (H + M)), P_H),
+    P_FA = (FA+0.5)/(FA+CR+1),# if FA rate is 0, standardize it    P_FA = ifelse(P_FA == 0, 1 / (2 * (H + M)), P_FA),  
+    dprime = qnorm(P_H) -qnorm(P_FA),
+    
+  )%>%
+  mutate(dprime = ifelse(is.na(dprime), 0, dprime))%>%
+  filter(valence=="Positive")%>%
+  ungroup()%>%
+  select(c("ID","domain","person","dprime"))%>%
+  pivot_wider(names_from = person,values_from = dprime,values_fill = list(dprime = 0))%>%
+ group_by(ID,domain)%>%
+  mutate(SRET_RJ1_d=self-friend)%>%
+  ungroup()%>%
+   select(ID,domain,SRET_RJ1_d)%>%
+  pivot_wider(names_from = domain,values_from = SRET_RJ1_d)%>%
+  rename(moral_SRET_RJ1_d=morality,
+         ability_SRET_RJ1_d=ability)
+head(SRET_RJ)
+print(setdiff(unique(SRET$ID),unique(SRET_RJ$ID)))
+
+```
+
+
+```{r 来源判断}
+SRET_RJ_2 <- SRET.0 %>%
+  mutate(ID = as.character(ID)) %>%
+  mutate(rt = as.numeric(rt)) %>%
+ mutate(correct = as.numeric(coalesce(correct,-1))) %>% #对新词按键判断的试次的correct记为-1
+  filter(screen_id %in% c("RJ_formal_2")) %>%
+  filter(!word %in% c("严谨", "认真", "刻板", "白痴", "忠实", "宽宏", "徇私", "可鄙")) %>%
+  filter(!is.na(identity))%>%
+  filter(!is.na(response))%>%
+  select(ID,valence,domain,correct,identity,response,responses)%>%
+   mutate(sdt = case_when((identity == "self" & (correct=="1") )~ "hit",##以自我为信号，朋友为噪音
+                          #自我条件下的击中，信号是“self”，反应是“self”
+                          (identity == "self" & (correct=="0") )~ "miss",
+                          #自我条件下的漏报，信号是“self”，反应是“friend”
+                          (identity == "friend" & (correct=="1" )) ~ "cr",
+                          #朋友条件下的击中，噪音是“friend”，反应是“friend”
+                           (identity == "friend" & (correct=="0" )) ~ "fa",
+                          #朋友条件下的漏报，噪音是“friend”，反应是“self”
+                       
+                       ))%>%
+  group_by(ID,valence,domain) %>%
+  summarize( 
+      H = sum(sdt == "hit"),
+      M = sum(sdt == "miss"),
+      FA = sum(sdt == "fa"),#根据RJ_formal2判断，本身是new，但是被判断为self/friend
+      CR = sum(sdt == "cr"),#每个被试在效价*领域 的条件
+  )%>%
+   mutate(
+      P_H = (H+0.5)/(H+M+1), # if hit rate is 1, standardize it    P_H = ifelse(P_H == 1, 1 - 1 / (2 * (H + M)), P_H),
+    P_FA = (FA+0.5)/(FA+CR+1),# if FA rate is 0, standardize it    P_FA = ifelse(P_FA == 0, 1 / (2 * (H + M)), P_FA), 
+      dprime = qnorm(P_H) -qnorm(P_FA))%>%
+  filter(valence=="Positive")%>%
+  ungroup()%>%
+  select(c("ID","domain","dprime"))%>%
+  pivot_wider(names_from = domain,values_from = dprime)%>%
+  rename(moral_SRET_RJ2_d=morality,
+         ability_SRET_RJ2_d=ability)
+head(SRET_RJ_2)
+```
+```{r}
+all_data<-day3_q_all%>%
+  merge(day0t2_q%>%select(ID,obj_ses1,fri_ses2), by = "ID", all = TRUE)%>%
+  merge(ALT2_rt,by="ID")%>%
+  merge(ALT2_dprime,by="ID")%>%
+  merge(IAT_data_D,by="ID")%>%
+  merge(SRET_EW,by="ID")%>%
+  merge(SRET_rt,by="ID")%>%
+  merge(SRET_RJ,by="ID")%>%
+  merge(SRET_RJ_2,by="ID")
+write.csv(all_data,"all_data.csv")
+```
+
+#描述性统计
+```{r}
+
+data <- all_data%>%
+  select(-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+data[,2:ncol(data)]<-as.data.frame(scale(data[, 2:ncol(data)]))
+write.csv(data,"data_z.csv")
+```
+
+
+##相关热图
+```{r}
+
+data2 <- all_data%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+
+data2[,1:ncol(data2)]<-as.data.frame(scale(data2[, 1:ncol(data2)]))
+write.csv(data2,"data2_z.csv")
+```
+
+```{r}
+cor_data2<-data2%>%
+cor(.)
+cor_data2<-data2%>%
+cor.plot(.)
+```
+#自我增强指标的相关图
+```{r}
+corrplot(cor_data2, order = 'hclust', addrect = 4)
+
+corrplot(cor_data2, method = 'square', diag = FALSE, order = 'hclust',
+         addrect = 4, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
+#all_data%>%
+#select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
+#rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,"NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
+#scale(.)%>%
+#cor(.)%>%
+#corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>%
+#corrRect(name = c("SCS",'ability_ALT_rt','moral_SRET_RJ2_d'))
+```
+
+```{r}
+all_data%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
+  
+  rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,
+         "NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
+  scale(.)%>%
+cor(.)%>%
+corrplot(., order = 'original', type = 'lower', diag = FALSE, tl.col = 'black') %>%
+  corrRect(name = c("SCS",'ability_ALT_rt',"moral_SRET_RJ2_d"))
+```
+
+
+
+```{r}
+all_data%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
+  
+  rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,
+         "NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
+  scale(.)%>%
+cor(.)%>%
+  write.csv("all_data_correlation.csv")
+```
+
+```{r}
+## leave blank on non-significant coefficient
+## add significant correlation coefficients
+library(corrplot)
+#进行相关性的显著性测试
+testRes <- cor.mtest(cor_data2, conf.level = 0.95)
+corrplot(cor_data2, p.mat = testRes$p, method = 'circle', type = 'lower', insig='blank',
+         addCoef.col ='black', number.cex = 0.8, order = 'AOE', diag=FALSE)
+```
+##网络分析
+```{r}
+
+CorMat_FDR <- FDRnetwork(cor_auto(data[,2:150]),cutoff=0.1, method = "pval")#lfdr
+lasso_1<- qgraph::qgraph(CorMat_FDR , layout = "spring",
+                      groups = list(c(1:36,47:71,132,133,134), c(37:46,91:110,131),c(72:90,111:130,135),c(136,138,140,142,144,146,148),c(137,139,141,143,145,147,149) ),
+                      #非,能力，道德
+                     color=c("white","lightblue","pink","blue","red"),
+                vsize=2, #节点大小
+                         label.cex = 0.1,  # 调整节点标签字体大小
+                         edge.labels = FALSE,  # 显示边标签,
+                        edge.label.cex = 1 )
+```
+
+
+```{r 构建网络分析}
+aen_glasso_q <- qgraph::EBICglasso(cor(data[,2:150]), n=503, gamma = 0.5)  #,returnAllResults=TRUE，扣除ID列，共151列
+
+```
+
+
+selfclarity_1~selfclarity_12; LOT_1~LOT_6; IPC_1~IPC_8; ses_1~ses_10; //coreself_1~coreself_10;//NPI1~NPI15;hsns_1~hsns_10;
+MorIden_1~MorIden_10;moralSeImag_1~moralSeImag_9;sde_1~sde_20;IM_1~IM_20;Ability,Attraction,Wealth,Social,Moral,obj_ses1,
+fri_ses2(137);ability_ALT_rt
+其他，能力，道德
+```{r}
+#只有149个变量了，14+135
+lasso <- qgraph::qgraph(aen_glasso_q , layout = "spring",
+                      groups = list(c(1:36,47:71,132,133,134), c(37:46,91:110,131),c(72:90,111:130,135),c(136,138,140,142,144,146,148),c(137,139,141,143,145,147,149) ),#非道德/能力领域的量表，能力，道德
+                     colors=c("white","lightblue","pink","blue","red"),
+                vsize=2, #节点大小
+                         label.cex = 0.1,  # 调整节点标签字体大小
+                         edge.labels = FALSE,  # 显示边标签,
+                        edge.label.cex = 1,
+                 minimum = 0.03)#
+                 #filetype = "pdf", # # 指定文件类型为PDF)
+                    #   filename = "network" ) # # 指定文件名前缀 # 调整边标签字体大小 
+```
+```{r}
+#只有149个变量了，14+135
+lasso <- qgraph::qgraph(aen_glasso_q , layout = "spring",
+                      groups = list(c(1:36,47:71,132,133,134), c(37:46,91:110,131),c(72:90,111:130,135),c(136,138,140,142,144,146,148),c(137,139,141,143,145,147,149) ),#非道德/能力领域的量表，能力，道德
+                     colors=c("white","#A7C0DE","#F3766D","#3962E3","#E11F25"),
+                vsize=2, #节点大小
+                         label.cex = 0.1,  # 调整节点标签字体大小
+                         edge.labels = FALSE,  # 显示边标签,
+                        edge.label.cex = 1,minimum = 0.03
+                 )#
+                 #filetype = "pdf", # # 指定文件类型为PDF)
+                    #   filename = "network" ) # # 指定文件名前缀 # 调整边标签字体大小 
+```
+```{r}
+#只有149个变量了，14+135
+lasso <- qgraph::qgraph(aen_glasso_q , layout = "spring",
+                      groups = list(c(1:135), c(136:149) ),#非道德/能力领域的量表，能力，道德
+                     colors=c("#A7C0DE","#F3766D"),
+                vsize=2, #节点大小
+                         label.cex = 0.1,  # 调整节点标签字体大小
+                         edge.labels = FALSE,  # 显示边标签,
+                        edge.label.cex =3,
+                 cutoff=0.05, method = "pval"
+                 )#
+                 #filetype = "pdf", # # 指定文件类型为PDF)
+                    #   filename = "network" ) # # 指定文件名前缀 # 调整边标签字体大小 
+```
+```{r}
+
+#只有149个变量了，14+135
+lasso <- qgraph::qgraph(aen_glasso_q , layout = "spring",
+                      groups = list(c(1:135), c(136:149) ),#非道德/能力领域的量表，能力，道德
+                     colors=c("white","#F3766D"),
+                vsize=2, #节点大小
+                         label.cex = 0.1,  # 调整节点标签字体大小
+                         edge.labels = FALSE,  # 显示边标签,
+                        edge.label.cex =3,
+                 cutoff=0.05, method = "pval"
+                 )#
+                 #filetype = "pdf", # # 指定文件类型为PDF)
+                    #   filename = "network" ) # # 指定文件名前缀 # 调整边标签字体大小 
+```
+
+
+```{r}
+a<-centrality(lasso , alpha = 1, posfun = abs, pkg="qgraph", all.shortest.paths = FALSE,
+weighted = TRUE, signed = TRUE, R2 = TRUE)
+centrality <- centrality_auto(aen_glasso_q, weighted = TRUE, signed = TRUE)
+nc <- centrality$node.centrality #node centrality
+write.csv(nc,"nc.csv")
+```
+```{r}
+summary(aen_glasso_q)
+```
+```{r}
+clusteringTable(aen_glasso_q)
+write.csv(clusteringTable(aen_glasso_q,standardized = FALSE, relative = FALSE,
+signed = FALSE),"clusteringTable(aen_glasso)2.csv")
+```
+
+```{r}
+SPL <- centrality$ShortestPathLengths #shortest path length
+write.csv(SPL,"SPL.csv")
+str(a)
+write.csv(a$R2 ,"a$R2.csv")
+write.csv(a$OutDegree,"a$OutDegree.csv")
+write.csv(a$InDegree,"a$InDegree.csv")
+write.csv(a$InExpectedInfluence,"a$InExpectedInfluence.csv")
+write.csv(a$OutExpectedInfluence,"a$OutExpectedInfluence.csv")
+write.csv(centrality$edge.betweenness.centrality,"edge.betweenness.centrality.csv")
+```
+```{r}
+
+### smallworldness index (include average shortest path length and transtivity)
+smallworldness(lasso)
+```
+
+Smallworldness=1.88，trans_target=0.29，averagelength_target=2.02， trans_rnd_M=0.15，trans_rnd_lo=0.14，trans_rnd_up=0.16，averagelength_rnd_M=1.94，averagelength_rnd_lo=1.93，averagelength_rnd_up=1.94
+Smallworldness (小世界性)、trans_target (目标网络的传递性)、averagelength_target (目标网络的平均路径长度)、trans_rnd_M (随机网络的平均传递性)、trans_rnd_lo (随机网络传递性的下限)、trans_rnd_up (随机网络传递性的上限)、averagelength_rnd_M (随机网络的平均路径长度的平均值)、averagelength_rnd_lo (随机网络平均路径长度的下限)、以及averagelength_rnd_up (随机网络平均路径长度的上限)。
+本网络分析显示，所研究网络的小世界性指数为1.88，表明该网络具有比随机网络更高的小世界性质。目标网络的传递性为0.29，远高于随机网络的平均传递性（0.15），及其置信区间的下限（0.14）和上限（0.16），说明网络中节点间的聚集程度高于随机情形。此外，目标网络的平均路径长度为2.02于随机网络的平均路径长度（1.93），及其置信区间的下限（1.93）和上限（1.94）。
+```{r}
+print(lasso)
+```
+
+```{r}
+clusteringPlot(lasso)
+```
+```{r}
+qgraph::centralityPlot(lasso, include = c("Closeness", "Betweenness", "Strength"), scale = "raw")
+```
+
+```{r}
+all_uva <- UVA(
+  data = data[,2:152],
+  network=aen_glasso_q,
+  reduce = TRUE,
+  reduce.method="latent",  
+  cut.off=0.03
+)
+
+# Print results
+all_uva
+```
+```{r}
+
+all_ega <- EGA(data = all_uva$reduced_data,n=503,corr='auto',model="glasso",algorithm= "leiden",na.data="pairwise")
+```
+```{r}
+summary(all_ega)
+```
+
+
+判断是否适合EFA
+
+```{r}
+data%>%
+  select(-ID)%>%
+KMO(.)
+
+data%>%
+  select(-ID)%>%
+cortest.bartlett(.)
+```
+$chisq
+[1] 55499.87
+
+$p.value
+[1] 0
+
+$df
+[1] 11325
+
+```{r}
+data%>%
+  select(-ID)%>%
+fa.parallel(.,fa='both',n.iter = 1000,
+  main='我的碎石图')
+
+```
+
+
+```{r}
+data%>%
+  select(-ID)%>%
+EFA(
+  .,
+  vars = names(.),
+  1:151,
+ nfactors=12,
+ file = "SEE_efa2.doc"
+ 
+)
+```
+
+碎石图提取，表明适合因子分析有11个。
+“Parallel analysis suggests that the number of factors =  11  and the number of components =  9 ”
+```{r}
+data_fa2<-data%>%
+  select(-ID)%>%
+fa(.,fm="pa",nfactor=9,rotate="promax")
+#查看表，低于0.35的不显示
+print(data_fa2,cut=0.3)
+```
+```{r}
+write.csv(data_fa2[["loadings"]],"loadings.csv")
+SEE_load<-read.csv("loadings.csv")
+```
+
+fm因素萃取法--vaiirmax最大变异法，nfacto提取因子数，rotate转轴方法
+```{r}
+data_fa<-data%>%
+  select(-ID)%>%
+fa(.,fm="pa",nfactor=12,rotate="promax")
+#查看表，低于0.35的不显示
+print(data_fa,cut=0.35)
+```
+因子载荷（Factor Loadings）：这些数字表示每个变量（指标）与每个因子之间的相关性。载荷值越高，表示变量与因子之间的关系越强。在您的输出中，标准化载荷（Standardized Loadings）已经基于相关矩阵展示。
+SS Loadings：每个因子的平方载荷之和，表示因子对变量变异性的解释程度。
+Proportion Var：这是每个因子解释的方差比例，表示每个因子对总方差的贡献。
+Cumulative Var：这是累积方差比例，表示到目前为止所有因子共同解释的总方差比例。
+Proportion Explained：这是每个因子解释的方差比例，基于特征值。这个比例可能会略微不同于基于载荷的比例（Proportion Var），因为它考虑了因子之间的相关性。
+Cumulative Proportion：这是累积解释的方差比例，表示到目前为止所有因子共同解释的总方差比例。
+因子间相关性（Factor Correlations）：这些数字表示因子之间的相关性。相关性越高，表示因子之间的关系越密切。
+Mean item complexity：这是指标的复杂性平均值，反映了每个指标与所有因子之间的平均关系强度。
+Test of the hypothesis that 11 factors are sufficient：这是对因子数量的检验，以确定是否有必要增加或减少因子数量。在这个部分，虚无模型的自由度为9316，模型自由度为7864。虚无模型的卡方值为51907.5，模型的卡方值为29.16。RMSR和DF corrected RMSR都是0.03，表明模型的拟合度很好。
+Tucker Lewis Index of factoring reliability：这是因子分析的信度指标，范围从0到1，值越高表示模型越可靠。
+RMSEA index：这是近似误差均方根，表示模型拟合的优度。值越低表示拟合越好。
+BIC：这是贝叶斯信息准则，用于模型比较。较低的BIC值表示更好的模型拟合。
+Measures of factor score adequacy：这部分展示了因子得分的有效性指标，包括因子得分与因子之间的相关性、多元决定系数（Multiple R square）和可能因子得分的最低相关性。这些指标反映了因子得分的有效性和可靠性。
+##task的聚类
+```{r}
+#write.csv(structure_task_6[["loadings"]],"task_loadings.csv"),无structure_task_6文件，import "task_loadings.csv"
+task_loadings<-read.csv("task_loadings.csv")
+distances <- dist(task_loadings, method="euclidean")
+ dendro <- hclust(distances, method="complete")
+ clusters <- cutreeDynamic(dendro, method="hybrid",minClusterSize=4,  distM=as.matrix(distances),deepSplit=4, maxCoreScatter=NULL, minGap=NULL, maxAbsCoreScatter=NULL, minAbsGap=NULL)
+ 
+```
+```{r}
+library(dendextend)
+plot(color_branches(as.dendrogram(dendro), k = 3))
+```
+##量表的聚类
+```{r}
+#write.csv(structure_q_9[["loadings"]],"q_loadings.csv")无structure_q_9文件，import "q_loadings.csv"
+q_loadings<-read.csv("q_loadings.csv")
+distances2 <- dist(q_loadings, method="euclidean")
+ dendro2 <- hclust(distances2, method="complete")
+ clusters2 <- cutreeDynamic(dendro2, method="hybrid",minClusterSize=4,  distM=as.matrix(distances2),deepSplit=4, maxCoreScatter=NULL, minGap=NULL, maxAbsCoreScatter=NULL, minAbsGap=NULL)
+ 
+```
+```{r}
+plot(color_branches(as.dendrogram(dendro2), k = 3))
+```
+
+###量表
+```{r}
+#write.csv(structure_q_9[["loadings"]],"q_loadings.csv")无structure_q_9文件
+q_loadings<-read.csv("q_loadings.csv")
+distances2 <- dist(q_loadings, method="euclidean")
+ dendro2 <- hclust(distances2, method="complete")
+ clusters2 <- cutreeDynamic(dendro, method="hybrid",minClusterSize=6,  distM=as.matrix(distances),deepSplit=4, maxCoreScatter=NULL, minGap=NULL, maxAbsCoreScatter=NULL, minAbsGap=NULL)
+ 
+```
+```{r}
+plot(color_branches(as.dendrogram(dendro2), k = 3))
+```
+```{r}
+# 加载所需的R包
+
+pacman::p_load("dendextend","ggdendro")
+
+
+
+# 提取因子载荷矩阵
+
+
+# 对因子载荷矩阵进行系统聚类
+hc <- hclust(dist(SEE_load))
+dendrogram <- as.dendrogram(hc)
+
+
+# 为系统聚类树添加颜色
+dendrogram_colored <- color_branches(dendrogram, k = 2)
+
+# 绘制系统聚类树
+plot(dendrogram_colored)
+
+
+print(hc)
+
+```
+```{r}
+
+
+# 使用cutree函数根据树形图的切割点将变量分配到不同的聚类中
+cluster_assignment <- cutree(hc, k = 2)
+
+# 将聚类标签分配给每个变量
+names(SEE_load) <- paste("Var", 1:ncol(SEE_load), sep = "")
+SEE_load$Cluster <- factor(cluster_assignment)
+
+# 查看每个变量的聚类分配
+write.csv(SEE_load,'CLUSTER.csv')
+```
+
+```{r}
+
+
+# 打开PNG图形设备
+png(filename = "dendrogram_colored.png", width = 800, height = 600)
+
+# 绘制系统聚类树
+plot(dendrogram_colored)
+
+# 关闭PNG图形设备
+dev.off()
+```
+```{r}
+
+
+write.csv(factor.scores(data%>%select(-ID),f=data_fa2)$score,"data_factor_score.csv")
+```
+```{r}
+data_score<-read.csv("data_factor_score.csv")
+```
+
+### 量表的因子分析
+
+
+```{r}
+#第二列为ID,将2:136更改为3:136
+data[3:136]%>%
+fa.parallel(.,fa='both',n.iter = 100,
+  main='我的碎石图')
+```
+
+
+
+#探索性因素分析+验证性因素分析
+##量表的各指标
+```{r}
+
+
+data_q<-data[3:136]
+set.seed(123) # 设置随机种子以获得可重复的结果
+train_index <- sample(1:nrow(data_q), 0.7 * nrow(data_q))
+
+# 创建训练集和测试集
+training <- data_q[train_index, ]
+test <- data_q[-train_index, ]
+```
+```{r}
+data[3:136]%>%
+performance::check_factorstructure(.)
+```
+
+```{r}
+
+structure_q_9 <- psych::fa(training,nfactors = 9,rotate="oblimin",fm="pa") 
+
+```
+
+```{r}
+q9 <- suppressWarnings(lavaan::cfa(efa_to_cfa(structure_q_9), data = test))
+```
+```{r}
+q9
+```
+
+```{r}
+structure_q_9 %>%model_parameters(sort = TRUE, threshold = "max")
+```
+```{r}
+structure_q_9
+```
+
+```{r}
+model_performance(q9, metrics = "all", verbose = TRUE)
+```
+```{r}
+write.csv(factor.scores(data[2:136],f=structure_q_9)$score,"q_factor_score.csv")
+
+```
+
+
+
+
+```{r}
+data[137:150]%>%
+performance::check_factorstructure(.)
+```
+
+
+##认知任务的EFA+CFA
+```{r}
+# to have reproducible result, we will also set seed here so that similar
+# portions of the data are used each time we run the following code
+data_task<-data[137:150]
+# 创建训练集和测试集
+training2 <- data_task[train_index, ]
+test2 <- data_task[-train_index, ]
+```
+
+```{r}
+data[137:150]%>%
+fa.parallel(.,fa='both',n.iter = 100,
+  main='我的碎石图')
+```
+
+
+```{r}
+
+structure_task_6 <- psych::fa(training2,nfactors =6,rotate="oblimin",fm="gls") 
+  
+```
+```{r}
+structure_task_6 %>%model_parameters(sort = TRUE, threshold = "max")
+```
+
+```{r}
+
+task6 <- suppressWarnings(lavaan::cfa(efa_to_cfa(structure_task_6), data = test2))
+
+```
+
+
+
+```{r}
+model_performance(task6, verbose = TRUE)
+
+```
+```{r}
+write.csv(structure_task_6$loadings,"task.csv")
+```
+
+```{r}
+data[2:150]%>%
+fa.parallel(.,fa='both',n.iter = 100,
+  main='我的碎石图')
+
+```
+
+```{r}
+# to have reproducible result, we will also set seed here so that similar
+# portions of the data are used each time we run the following code
+data_task<-data[2:150]
+# 创建训练集和测试集
+
+training3 <- data_task[train_index, ]
+test3 <- data_task[-train_index, ]
+```
+```{r}
+data[2:150]%>%
+performance::check_factorstructure(.)
+```
+
+```{r}
+
+structure_all_9 <- psych::fa(training3,nfactors =9,rotate="oblimin",fm="pa") 
+  
+```
+```{r}
+structure_all_9 %>%model_parameters(sort = TRUE, threshold = "max")
+```
+
+
+
+```{r}
+task_q <- suppressWarnings(lavaan::cfa(efa_to_cfa(structure_all_9 ), data = test3))
+```
+
+
+
+```{r}
+model_performance(task_q, verbose = TRUE)
+
+```
+```{r}
+write.csv(factor.scores(data[2:150],f=structure_all_9)$score,"test_score.csv")
+```
+
+查看图
+                                       
+```{r}
+  #performed using maximum likelihood estimation，Factor scores were estimated using the tenBerge
+fa.diagram(day3_q_fa,cut=0.35,sort=TRUE,digits=2)
+```
+
+
+查看因子得分
+
+```{r}
+#factor.scores(day3_q_cor,f=day3_q_fa)
+SEE_EFA_score<-factor.scores(data[2:150],f=structure_all_9)$score%>%
+  cbind(data%>%select(ID))
+RF_data<-SEE_EFA_score%>%
+  merge(health_var,by="ID")
+```
+
+```{r}
+write.csv(RF_data,"RF_data.csv")
+```
+
+#量表
+```{r}
+#factor.scores(day3_q_cor,f=day3_q_fa)
+SEE_EFA_score2<-factor.scores(data[2:136],f=structure_q_9)$score%>%
+  cbind(data%>%select(ID))
+RF_data2<-SEE_EFA_score2%>%
+  merge(health_var,by="ID")
+```
+# 任务
+```{r}
+#factor.scores(day3_q_cor,f=day3_q_fa)
+SEE_EFA_score3<-factor.scores(data[137:150],f=structure_task_6)$score%>%
+  cbind(data%>%select(ID))
+RF_data3<-SEE_EFA_score3%>%
+  merge(health_var,by="ID")
+```
+
+```{r}
+data[2:138]%>%
+KMO(.)
+
+data[2:138]%>%
+cortest.bartlett(.)
+```
+
+```{r}
+data[2:138]%>%
+fa.parallel(.,fa='both',n.iter = 1000,
+  main='我的碎石图')
+
+```
+
+```{r}
+
+data[2:138]%>%
+EFA(
+  .,
+  vars = names(.),
+  1:137,
+ nfactors=9,
+ file = "SEE_q_efa.doc"
+ 
+)
+```
+```{r}
+q_fa2<-data[2:138]%>%
+fa(.,fm="pca",nfactor=9,rotate="varimax")
+#查看表，低于0.35的不显示
+print(q_fa2,cut=0.3)
+```
+
+```{r}
+data[139:152]%>%
+KMO(.)
+
+data[139:152]%>%
+cortest.bartlett(.)
+```
+
+```{r}
+data[139:152]%>%
+fa.parallel(.,fa='both',n.iter = 1000,
+  main='我的碎石图')
+
+```
+
+
+
+```{r}
+
+data[139:152]%>%
+EFA(
+  .,
+  vars = names(.),
+  1:14,
+ nfactors=6,
+ file = "SEE_task_efa.doc"
+ 
+)
+```
+```{r}
+?EFA
+```
+
+```{r}
+# 加载所需的R包
+library(psych)
+library(ggplot2)
+library(dendextend)
+library(ggdendro)
+
+# 假设data是一个数据框，包含了您要进行因子分析的数据
+
+# 进行探索性因子分析
+efa_results <- fa(data, nfactors = 3, rotate = "varimax", scores = TRUE)
+
+# 提取因子载荷矩阵
+factor_loadings <- efa_results$loadings
+
+# 对因子载荷矩阵进行系统聚类
+hc <- hclust(dist(factor_loadings))
+dendrogram <- as.dendrogram(hc)
+
+# 为系统聚类树添加颜色
+dendrogram_colored <- color_branches(dendrogram, k = 3)
+
+# 绘制系统聚类树
+plot(dendrogram_colored)
+
+# 根据系统聚类树的顺序对列进行排序
+factor_loadingsOrdered <- factor_loadings[, order.dendrogram(dendrogram_colored)]
+
+# 绘制热图
+ggplot(data = melt(factor_loadingsOrdered), aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "因子", y = "因变量", fill = "因子载荷", title = "因子载荷热图")
+
+```
+
+
+```{r}
+# 加载cluster包以进行层次聚类分析
+library(cluster)
+
+
+# 选择除了第一列以外的所有列进行聚类分析
+# 执行层次聚类分析
+# method = "ward"指定使用Ward链接方法
+hc <- agnes(data[-1], method = "ward")
+
+# 绘制树形聚类图
+plot(hc, main = "层次聚类树形图")
+
+```
+
+
+##随机森林前的
+```{r}
+
+
+
+health_all_cor<-all_data%>%
+  select(ID,matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+health_all_cor[,2:33]<-scale(health_all_cor[,2:33])
+health_all_cor%>%
+  merge(health_var,by="ID")%>%
+  select(-ID)%>%
+cor(.)%>%
+corrplot(., order = 'original') %>%
+  corrRect(name = c('SGPS','SWB'))
+
+```
+
+
+
+#
+```{r}
+# Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
+# Use set.seed for reproducibility
+# object 'RF_data' not found
+set.seed(123)
+rf_split <- initial_split(RF_data, prop = .7)# 70%训练集，30%测试集
+rf_train <- training(rf_split)#训练集
+rf_test  <- testing(rf_split)#测试集
+```
+我们将多个决策树模型组合的过程称为随机森林。我们称之为bagging和boosting。它们是机器学习中使用的两种集成方法，通过组合多个模型的预测来提高单个模型的性能。
+Bagging：bagging是一种组合多个模型的方式；正如我们上面讨论的，它可以是任何模型，例如knn、朴素贝叶斯、逻辑等。但是，结果将是相同的，因为所有模型的数据输入都相同。为了解决这个问题，我们将使用引导聚合器。例如，如果我们有 10 个模型，每个模型都在训练数据的不同子集上进行训练。
+最终的预测通常是所有模型预测的平均数或多数票。除此之外，由于上述两点，Bagging 还可以减少方差。
+Boosting：相反，BOOSTING 通过组合弱学习器来产生强学习器。 在上图中，您可以看到它遵循顺序训练。Boosting 算法的类型:1.Adaboosting2.梯度提升3. XGBoost
+bootstrap训练集创建：How do we create multiple subsets when we have Rows and columns in the training dataset? and what is with replacement?
+Rows:
+When we say with thereplacement(refer to the image below for better understanding), in a subset, we can have the same row multiple times. as you can see in subset 2, the 2nd row is repeated 2 times, and in subset 3 1st row is repeated 2 times.【行：重复抽取同一行多次】
+
+Columns:
+
+1. For classification, it’s a square root of the total number of features
+Example: let’s say we have a total of 4 features for each subset we will have 
+The square root of 4= 2. which is 2 features for each tree.【分类，每棵树的特征是每个子集的特征值开方】
+2. Regression: total number of features and dividing them by 3 【回归，总特征除以3】
+Prediction:
+For classification, we use majority voting
+For regression, we use averaging
+基本回归树将数据集划分为更小的组，然后为每个子组拟合一个简单的模型（常量）。不幸的是，单树模型往往非常不稳定，并且预测变量较差。但是，通过引导聚合（装袋）回归树，这种技术可以变得非常强大和有效。此外，这为更复杂的基于树的模型（如随机森林和梯度提升机）提供了基础。
+1.  Given a training data set
+2.  Select number of trees to build (n_trees)
+3.  for i = 1 to n_trees do
+4.  |  Generate a bootstrap sample of the original data
+5.  |  Grow a regression/classification tree to the bootstrapped data
+6.  |  for each split do
+7.  |  | Select m_try variables at random from all p variables
+8.  |  | Pick the best variable/split-point among the m_try
+9.  |  | Split the node into two child nodes
+10. |  end
+11. | Use typical tree model stopping criteria to determine when a 
+    | tree is complete (but do not prune)
+12. end
+13. Output ensemble of trees 
+ Although not technically a hyperparameter, the number of trees needs to be sufficiently large to stabilize the error rate. A good rule of thumb is to start with 10 times the number of features.
+ The hyperparameter that controls the split-variable randomization feature of random forests is often referred to as mtry.[分类，每棵树的特征是每个子集的特征值开方;回归，总特征除以3]
+
+随机森林是建立在个体决策树上的;
+
+因此，大多数随机森林实现都有一个或多个超参数，允许我们控制单个树的深度和复杂性。
+这通常包括超参数，如节点大小、最大深度、终端节点的最大数量或允许额外分割所需的节点大小。
+节点大小可能是控制树复杂性最常见的超参数，大多数实现使用默认值1进行分类，5进行回归，因为这些值往往产生良好的结果(Di'az-Uriarte和De Andres 2006;Goldstein, Polley, and Briggs 2011).然而，Segal(2004)表明，如果你的数据有许多嘈杂的预测器，并且更高的try值表现最好，那么通过增加节点大小(即。(降低树的深度和复杂性)。
+此外，如果计算时间是一个问题，那么通常可以通过增加节点大小来大幅减少运行时间，并且对误差估计的影响很小，如图11.3所示。
+
+```{r Tuning the parameters}
+#调参，选择maxnodes和ntree
+# If training the model takes too long try setting up lower value of N
+
+X_train_ = rf_train[1:352 , 2:10]
+y_train_ = rf_train[1:352,11]#SGPS
+
+rf.all.factor <- randomForest(x = X_train_, y = y_train_,type = regression, ntree = 100,importance = TRUE)
+
+```
+```{r}
+#tune the model调参
+set.seed(123)
+tuneRF(rf_train[1:352 , 2:10],rf_train[1:352,11],stepFactor=3)
+```
+
+```{r}
+X_test = rf_test[1:151 , 2:10]
+y_test = rf_test[1:151,11]#SGPS
+predictions <- predict(rf.all.factor, X_test)
+result <- X_test
+result['SGPS'] <- y_test
+result['prediction']<-  predictions
+head(result)                                                                                                                                
+```
+
+
+```{r}
+ggplot(  ) + 
+  geom_point(aes(x = X_test$PA1, y = y_test, color  = 'red', alpha = 0.5) ) + 
+  geom_point( aes(x = X_test$PA1 , y = predictions, color = 'blue',  alpha = 0.5)) + 
+  labs(x = "PA1", y = "SGPS", color = "", alpha = 'Transperency') +
+  scale_color_manual(labels = c( "Predicted", "Real"), values = c("blue", "red")) 
+```
+```{r}
+ggplot(  ) + 
+  geom_point(aes(x = X_test$PA8, y = y_test, color  = 'red', alpha = 0.5) ) + 
+  geom_point( aes(x = X_test$PA8 , y = predictions, color = 'blue',  alpha = 0.5)) + 
+  labs(x = "PA1", y = "SGPS", color = "", alpha = 'Transperency') +
+  scale_color_manual(labels = c( "Predicted", "Real"), values = c("blue", "red")) 
+```
+```{r}
+plot(rf.all.factor)
+```
+```{r}
+rf.all.factor
+```
+
+```{r}
+## Attaching package: 'Metrics'
+## The following objects are masked from 'package:caret':
+## 
+##     precision, recall
+print(paste0('MAE: ' , mae(y_test,predictions) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions , y_test)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions , y_test)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+```
+
+```{r}
+randomForest::importance(rf.all.factor)
+```
+
+```{r}
+varImpPlot(rf.all.factor,sort = FALSE)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(rf.all.factor))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+
+###gad
+```{r}
+
+y_test_gad = rf_test[1:151,12]#gad
+
+
+y_train_gad =rf_train[1:352,12] #gad
+
+gad<- randomForest(x = X_train_, y = y_train_gad,type =regression, ntree = 100,importance = TRUE)
+predictions_gad1 <- predict(gad, X_test)
+result_gad1 <- X_test
+result_gad1['gad'] <- y_test_gad
+result_gad1['prediction']<-predictions_gad1
+head(result_gad1)   
+```
+
+
+```{r}
+randomForest::importance(gad)
+```
+MeanDecreaseAccuracy: 这个指标表示在随机森林中，当一个变量被移除时，模型的OOB错误率增加的均值。它衡量的是移除该变量后，随机森林预测准确度的平均减少量。
+MeanDecreaseGini: 这个指标用于分类任务，它衡量的是在随机森林中，当一个变量被移除时，Gini指数平均减少的量。Gini指数用于评估分类模型中类别的纯度，它衡量的是模型在预测类别时的能力。
+```{r}
+varImpPlot(gad,sort = FALSE)
+```
+```{r}
+gad
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(gad))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`MeanDecreaseAccuracy`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`MeanDecreaseAccuracy`), color="skyblue") +  geom_point(aes(size = MeanDecreaseGini), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+###phq
+```{r}
+
+y_test_phq = rf_test[1:151,13]#gad
+
+
+y_train_phq =rf_train[1:352,13] #gad
+
+phq<- randomForest(x = X_train_, y = y_train_phq,type =regression, ntree = 100,importance = TRUE)
+predictions_phq <- predict(phq, X_test)
+result_phq <- X_test
+result_phq['phq'] <- y_test_phq
+result_phq['prediction']<-predictions_phq
+head(result_phq)   
+```
+```{r}
+phq
+```
+
+
+```{r}
+randomForest::importance(phq)
+```
+
+```{r}
+varImpPlot(phq,sort = FALSE)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(phq))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`MeanDecreaseAccuracy`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`MeanDecreaseAccuracy`), color="skyblue") +  geom_point(aes(size = MeanDecreaseGini), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+###SWB
+```{r}
+
+y_test_SWB = rf_test[1:151,14]#SWB
+
+
+y_train_SWB =rf_train[1:352,14] #SWB
+
+SWB <- randomForest(x = X_train_, y = y_train_SWB,type = regression, ntree = 100,importance = TRUE)
+predictions_SWB <- predict(SWB,X_test)
+result_SWB <- X_test
+result_SWB['SWB'] <- y_test_SWB
+result_SWB['prediction']<-  predictions_SWB
+head(result_SWB)   
+```
+```{r}
+SWB
+```
+
+```{r}
+## Attaching package: 'Metrics'
+## The following objects are masked from 'package:caret':
+## 
+##     precision, recall
+print(paste0('MAE: ' , mae(y_test_SWB,predictions_SWB) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions_SWB, y_test_SWB)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions_SWB, y_test_SWB)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+```
+```{r}
+randomForest::importance(SWB)
+```
+
+```{r}
+varImpPlot(SWB,sort = FALSE)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(SWB))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+```{r}
+raw_data<-all_data%>%
+  select(ID,matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
+  
+  rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,
+         "NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)
+head(raw_data)
+raw_data[,2:ncol(raw_data)]<-as.data.frame(scale(raw_data[, 2:ncol(raw_data)]))
+raw_data<-raw_data%>%
+  merge(health_var,by="ID")
+```
+```{r}
+raw_data[2,32:35]
+set.seed(123)
+rf_split_raw <- initial_split(raw_data, prop = .7)# 70%训练集，30%测试集
+rf_train_raw <- training(rf_split_raw)#训练集
+rf_test_raw  <- testing(rf_split_raw)#测试集
+```
+
+```{r}
+X_test_raw = rf_test_raw[1:151 , 2:31]
+y_test_raw = rf_test_raw[1:151,32]#SGPS
+
+X_train_raw = rf_train_raw[1:352 , 2:31]
+y_train_raw = rf_train_raw[1:352,32]#SGPS
+
+raw_SGPS <- randomForest(x = X_train_raw, y = y_train_raw,type = regression, ntree = 100,importance = TRUE)
+predictions_raw <- predict(raw_SGPS, X_test_raw)
+result_raw_SGPS <- X_test_raw
+result_raw_SGPS['SGPS'] <- y_test_raw
+result_raw_SGPS['prediction']<-  predictions_raw
+head(result_raw_SGPS)   
+```
+```{r}
+raw_SGPS
+```
+
+```{r}
+## Attaching package: 'Metrics'
+## The following objects are masked from 'package:caret':
+## 
+##     precision, recall
+print(paste0('MAE: ' , mae(y_test_raw,predictions_raw) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions_raw , y_test_raw)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions_raw , y_test_raw)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+```
+```{r}
+randomForest::importance(raw_SGPS)
+```
+
+```{r}
+varImpPlot(raw_SGPS,sort=FALSE)
+```
+```{r}
+varImpPlot(raw_SGPS)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(raw_SGPS))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+###gad
+```{r}
+
+y_test_raw2 = rf_test_raw[1:151,33]#gad
+
+
+y_train_raw2 =rf_train_raw[1:352,33] #gad
+
+raw_gad<- randomForest(x = X_train_raw, y = y_train_raw2,type = "regression", ntree = 100,importance = TRUE)
+predictions_gad <- predict(raw_gad, X_test_raw)
+result_raw_gad <- X_test_raw
+result_raw_gad['gad'] <- y_test_raw2
+result_raw_gad['prediction']<-predictions_gad
+head(result_raw_gad)   
+```
+
+
+```{r}
+randomForest::importance(raw_gad)
+```
+```{r}
+raw_gad
+```
+
+```{r}
+varImpPlot(raw_gad,sort=FALSE)
+```
+```{r}
+varImpPlot(raw_gad)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(raw_gad))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`MeanDecreaseAccuracy`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`MeanDecreaseAccuracy`), color="skyblue") +  geom_point(aes(size = MeanDecreaseGini), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+###phq
+```{r}
+
+y_test_raw3 = rf_test_raw[1:151,34]#phq
+
+
+y_train_raw3 =rf_train_raw[1:352,34] #phq
+
+raw_phq<- randomForest(x = X_train_raw, y = y_train_raw3,type =regression, ntree = 100,importance = TRUE)
+predictions_phq <- predict(raw_phq, X_test_raw)
+result_raw_phq <- X_test_raw
+result_raw_phq['phq'] <- y_test_raw3
+result_raw_phq['prediction']<-predictions_phq
+head(result_raw_phq)   
+```
+```{r}
+raw_phq
+```
+
+
+```{r}
+randomForest::importance(raw_phq)
+```
+
+```{r}
+varImpPlot(raw_phq,sort=FALSE)
+```
+```{r}
+varImpPlot(raw_phq)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(raw_phq))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`MeanDecreaseAccuracy`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`MeanDecreaseAccuracy`), color="skyblue") +  geom_point(aes(size = MeanDecreaseGini), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+
+
+```{r}
+
+```
+
+###SWB
+```{r}
+
+y_test_raw4 = rf_test_raw[1:151,35]#SGPS
+y_train_raw4 = rf_train_raw[1:352,35]#SGPS
+
+raw_SWB <- randomForest(x = X_train_raw, y = y_train_raw4,type = regression, ntree = 100,importance = TRUE)
+predictions_raw4 <- predict(raw_SWB, X_test_raw)
+result_raw_SWB <- X_test_raw
+result_raw_SWB['SWB'] <- y_test_raw4
+result_raw_SWB['prediction']<-  predictions_raw4
+head(result_raw_SWB)   
+```
+
+```{r}
+## Attaching package: 'Metrics'
+## The following objects are masked from 'package:caret':
+## 
+##     precision, recall
+print(paste0('MAE: ' , mae(y_test_raw4,predictions_raw4) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions_raw4, y_test_raw4)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions_raw4, y_test_raw4)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+```
+```{r}
+randomForest::importance(raw_SWB)
+```
+```{r}
+raw_SWB
+```
+
+```{r}
+varImpPlot(raw_SWB,sort = FALSE)
+```
+```{r}
+varImpPlot(raw_SWB)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(raw_SWB))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+```{r}
+#Havealookatpartialdependenceplots
+randomForest::partialPlot(x=raw_phq,pred.data=X_train_raw,x.var="moral_SRET_RJ2_d",which.class="1")
+```
+```{r}
+
+```
+##任务
+
+```{r}
+# Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
+# Use set.seed for reproducibility
+
+set.seed(123)
+rf_split3 <- initial_split(RF_data3, prop = .7)# 70%训练集，30%测试集
+rf_train3 <- training(rf_split3)#训练集
+rf_test3  <- testing(rf_split3)#测试集
+```
+
+```{r Tuning the parameters}
+#调参，选择maxnodes和ntree
+# If training the model takes too long try setting up lower value of N
+
+X_train_ = rf_train3[1:352 , 2:7]
+y_train_ = rf_train3[1:352,8]#SGPS
+
+rf.all.factor3 <- randomForest(x = X_train_, y = y_train_,type = regression, ntree = 100,importance = TRUE)
+
+```
+
+```{r}
+X_test = rf_test3[1:151 , 2:10]
+y_test = rf_test3[1:151,11]#SGPS
+predictions <- predict(rf.all.factor3, X_test)
+result <- X_test
+result['SGPS'] <- y_test
+result['prediction']<-  predictions
+head(result)                                                                                                                                
+```
+```{r}
+rf.all.factor3
+```
+
+```{r}
+## Attaching package: 'Metrics'
+## The following objects are masked from 'package:caret':
+## 
+##     precision, recall
+print(paste0('MAE: ' , mae(y_test,predictions) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions , y_test)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions , y_test)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+```
+
+```{r}
+randomForest::importance(rf.all.factor3)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(rf.all.factor3))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+###gad
+```{r}
+
+y_test_gad = as.factor(rf_test[1:151,12])#gad
+
+
+y_train_gad =as.factor(rf_train[1:352,12]) #gad
+
+gad<- randomForest(x = X_train_, y = y_train_gad,type =" classification", ntree = 100,importance = TRUE)
+predictions_gad1 <- predict(gad, X_test)
+result_gad1 <- X_test
+result_gad1['gad'] <- y_test_gad
+result_gad1['prediction']<-predictions_gad1
+head(result_gad1)   
+```
+```{r}
+randomForest::importance(gad)
+```
+
+```{r}
+varImpPlot(gad)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(gad))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`MeanDecreaseAccuracy`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`MeanDecreaseAccuracy`), color="skyblue") +  geom_point(aes(size = MeanDecreaseGini), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+##量表
+
+```{r}
+# Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
+# Use set.seed for reproducibility
+
+set.seed(123)
+rf_split2<- initial_split(RF_data2, prop = .7)# 70%训练集，30%测试集
+rf_train2 <- training(rf_split2)#训练集
+rf_test2  <- testing(rf_split2)#测试集
+```
+
+```{r Tuning the parameters}
+#调参，选择maxnodes和ntree
+# If training the model takes too long try setting up lower value of N
+
+X_train_ = rf_train[1:352 , 2:10]
+y_train_ = rf_train[1:352,11]#SGPS
+
+rf.all.factor <- randomForest(x = X_train_, y = y_train_,type = regression, ntree = 100,importance = TRUE)
+
+```
+
+```{r}
+X_test = rf_test[1:151 , 2:10]
+y_test = rf_test[1:151,11]#SGPS
+predictions <- predict(rf.all.factor, X_test)
+result <- X_test
+result['SGPS'] <- y_test
+result['prediction']<-  predictions
+head(result)                                                                                                                                
+```
+
+```{r}
+## Attaching package: 'Metrics'
+## The following objects are masked from 'package:caret':
+## 
+##     precision, recall
+print(paste0('MAE: ' , mae(y_test,predictions) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions , y_test)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions , y_test)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+```
+
+```{r}
+randomForest::importance(rf.all.factor)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(rf.all.factor))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+```{r}
+df <- read_xlsx('RF.xlsx',sheet = 'Sheet1')
+df <- df %>%
+  pivot_longer(
+    cols = c(SGPS, GAD, PHQ, SWB), # 指定要转换的列
+    names_to = "variable",          # 新列名，用于存储原始列名
+    values_to = "IncMSE"           # 新列名，用于存储原始列的值
+  )
+
+ggplot(df, aes(x = factor(component, levels = c("PA1","PA6", "PA4","PA7", "PA8", "PA5",'PA3', "PA9", "PA2")), y = IncMSE, shape = variable, color = variable)) +
+  geom_point(size = 5, alpha = 0.4) +  # 添加散点图层
+  #geom_line(aes(group = variable), linetype = "dashed",  alpha = 0.5) +  # 添加虚线图层
+  labs(
+    title = "",
+    x = "因子",
+    y = "%IncMSE",
+    shape = "因变量",
+    color = "因变量"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),  # 去除主网格线
+    panel.grid.minor = element_blank(),  # 去除次网格线
+    panel.border = element_rect(fill = NA, colour = "black", size = 0.5),  # 增加边框线
+    axis.ticks = element_line(color = "black"),  # 设置刻度线的颜色
+    axis.ticks.length = unit(0.2, "cm")  # 设置刻度线的长度
+  )
+
+
+
+
+
+
+```
+```{r}
+df <- read_xlsx('RF.xlsx',sheet = 'Sheet1')
+df <- df %>%
+  pivot_longer(
+    cols = c(SGPS, GAD, PHQ, SWB), # 指定要转换的列
+    names_to = "variable",          # 新列名，用于存储原始列名
+    values_to = "IncMSE"           # 新列名，用于存储原始列的值
+  )
+
+ggplot(df, aes(x = factor(component, levels = c("PA1","PA6", "PA4","PA7", "PA8", "PA5",'PA3', "PA9", "PA2")), y = IncMSE, shape = variable, color = variable)) +
+  geom_point(size = 5, alpha = 0.4) +  # 添加散点图层
+  #geom_line(aes(group = variable), linetype = "dashed",  alpha = 0.5) +  # 添加虚线图层
+  labs(
+    title = "",
+    x = "主成分",
+    y = "%IncMSE",
+    shape = "因变量",
+    color = "因变量"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),  # 去除主网格线
+    panel.grid.minor = element_blank(),  # 去除次网格线
+    panel.border = element_rect(fill = NA, colour = "black", size = 0.5),  # 增加边框线
+    axis.ticks = element_line(color = "black"),  # 设置刻度线的颜色
+    axis.ticks.length = unit(0.2, "cm")  # 设置刻度线的长度
+  )
+
+
+
+
+
+
+```
+```{r}
+df <- read_xlsx('RF.xlsx',sheet = 'Sheet1')
+df <- df %>%
+  pivot_longer(
+    cols = c(SGPS, GAD, PHQ, SWB), # 指定要转换的列
+    names_to = "variable",          # 新列名，用于存储原始列名
+    values_to = "IncMSE"           # 新列名，用于存储原始列的值
+  )
+
+ggplot(df, aes(x = factor(component, levels = c("PA1","PA6", "PA4","PA7", "PA8", "PA5",'PA3', "PA9", "PA2")), y = IncMSE, shape = variable, color = variable)) +
+  geom_point(size = 5, alpha = 1.5) +  # 添加散点图层
+  #geom_line(aes(group = variable), linetype = "dashed",  alpha = 0.5) +  # 添加虚线图层
+  labs(
+    title = "",
+    x = "因子",
+    y = "%IncMSE",
+    shape = "因变量",
+    color = "因变量"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),  # 去除主网格线
+    panel.grid.minor = element_blank(),  # 去除次网格线
+    panel.border = element_rect(fill = NA, colour = "black", size = 0.5),  # 增加边框线
+    axis.ticks = element_line(color = "black"),  # 设置刻度线的颜色
+    axis.ticks.length = unit(0.2, "cm")  # 设置刻度线的长度
+  )
+
+```
+
+```{r}
+df2 <- read_xlsx('RF.xlsx',sheet = 'Sheet2')
+df2 <- df2%>%
+  pivot_longer(
+    cols = c(SGPS, GAD, PHQ, SWB), # 指定要转换的列
+    names_to = "variable",          # 新列名，用于存储原始列名
+    values_to = "IncMSE"           # 新列名，用于存储原始列的值
+  )
+
+ggplot(df2, aes(x= factor(component, levels = c("SCS","RSES", "CSE","HSNS", "NPI", "LOT",'SDE', "IM", "MI","MSI","IPC","Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d")), y = IncMSE, shape = variable, color = variable)) +
+  geom_point(size = 5, alpha = 0.4) +  # 添加散点图层
+  # geom_line(aes(group = variable), linetype = "dashed",  alpha = 0.5) +  
+  labs(
+    title = "",
+    x = "原始指标",
+    y = "%IncMSE",
+    shape = "因变量",
+    color = "因变量"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),  # 去除主网格线
+    panel.grid.minor = element_blank(),  # 去除次网格线
+    panel.border = element_rect(fill = NA, colour = "black", size = 0.5),  # 增加边框线
+    axis.ticks = element_line(color = "black"),  # 设置刻度线的颜色
+    axis.ticks.length = unit(0.2, "cm"),  # 设置刻度线的长度
+    axis.text.x = element_text(angle = 60, hjust = 1) , # 设置x轴文本的角度
+  
+  )
+
+
+
+
+```
