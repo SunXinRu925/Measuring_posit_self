@@ -53,45 +53,41 @@ write.csv(SRET,"SRET.csv")
 
 
 ```{r}
-col<-cor_SEE%>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
-row<-cor_SEE%>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+col<- all_data_cleaned %>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
+row<- all_data_cleaned %>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
 
 #添加
 cor_matrix <- cor(col)
 corrplot::corrplot(cor_matrix)
-
-#ggplot(data.frame(cor_SEE), aes(colnames(col), colnames(row), fill = cor_SEE[, 1])) +
-  #geom_tile(color = "white") +
-  #scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
-  #theme_minimal() +
-  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  #labs(x = "任务", y = "量表", fill = "相关系数") +
-  #coord_fixed() # 确保x和y轴标签对齐
 ```
 
 
 被试"phase_017_subj_13"的数据因脑岛技术意外缺失
 
 #数据加载
-```{r}
-#更改路径，需要文件：
-#day3_q_all.csv, SRET_all.csv, ALT1_all.csv, day0_all.csv, day1_q_all.csv, day2_q_all.csv, IAT_all.csv, ALT2_all.csv
 
-day3_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day3_q_all.csv")
-SRET<-read.csv("../../Analysis_data_Sunst/Graduation/SRET_all.csv")%>%
+
+```{r}
+# 更新后的路径
+path <- "/Users/sunxinru/Desktop/Measuring_posit_self/4_Analysis/Analysis_data_SunXR/analysis_XR"
+
+# 读取文件
+day3_q_all <- read.csv(file.path(path, "day3_q_all.csv"))
+SRET_all <- read.csv(file.path(path, "SRET_all.csv")) %>%
   subset(., ID %in% day3_q_all$ID)
-ALT1_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT1_all.csv")%>%
+ALT1_all <- read.csv(file.path(path, "ALT1_all.csv")) %>%
   subset(., ID %in% day3_q_all$ID)
-day0_all<-read.csv("../../Analysis_data_Sunst/Graduation/day0_all.csv")%>%
+day0_all <- read.csv(file.path(path, "day0_all.csv")) %>%
   subset(., ID %in% day3_q_all$ID)
-day1_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day1_q_all.csv")%>%
+day1_q_all <- read.csv(file.path(path, "day1_q_all.csv")) %>%
   subset(., ID %in% day3_q_all$ID)
-day2_q_all<-read.csv("../../Analysis_data_Sunst/Graduation/day2_q_all.csv")%>%
+day2_q_all <- read.csv(file.path(path, "day2_q_all.csv")) %>%
   subset(., ID %in% day3_q_all$ID)
-IAT_all<-read.csv("../../Analysis_data_Sunst/Graduation/IAT_all.csv")%>%
+IAT_all <- read.csv(file.path(path, "IAT_all.csv")) %>%
   subset(., ID %in% day3_q_all$ID)
-ALT2_all<-read.csv("../../Analysis_data_Sunst/Graduation/ALT2_all.csv")%>%
+ALT2_all <- read.csv(file.path(path, "ALT2_all.csv")) %>%
   subset(., ID %in% day3_q_all$ID)
+
 ```
 
 #数据预处理
