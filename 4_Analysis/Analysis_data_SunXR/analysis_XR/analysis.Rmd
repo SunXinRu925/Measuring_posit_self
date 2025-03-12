@@ -215,7 +215,7 @@ day3_q_all%>%
 Describe(.,file="day0t3_q_descrip.doc")#education,national,sex,fatherEdu,FatherOccupation,motherEdu,MotherOccupation,
 
 ```
-####计数的频数，百分比
+####描述统计：计数的频数，百分比
 ```{r}
 #day0t2_q.csv
 day0t2_q_des<-day0t2_q%>%
@@ -378,6 +378,7 @@ Alpha(day3_q_all, "NPI", 1:15)
 采用过度敏感自恋量表。本研究所使用的过度敏感自恋量表（Hypersensitivity Narcissistic Scale）为单因素结构自评问卷，共10个项目，内容涉及到自我评价、自我行为倾向。采用Likert 5 点式评分法 ，从 “不符合”到 “符合”分别为1分和5分 。 它反映了过度敏感性和脆弱性。Hendin和Cheek(1997) 报告，HSNS的α系数为0. 76。HSNS的全量表分数代表自恋的隐性维度，得分范围是从 10 到 50 分，分数越高隐性自恋水平越高 。
 ```{r}
 Alpha(day3_q_all, "hsns_", 1:10) 
+ #Items hsns_1, hsns_9 correlate negatively with the scale and may be reversed.
 ```
 该量表来源于Aquino (2002)等人编制的道德同一性量表（moral identity scale），该量表具有良好的信效度，α=0.83。万增奎修订后的中文版α=0.85，内隐维度α=0.83，外显维度α=0.74。中文版的道德同一性量表包括10道题，其中1,2,4,7,10为内隐维度，3，5，6,8,9为外显维度，采用5点计分，-2=“完全不同意”，-1=“有些不同意”，0=“中立”，1=“有些同意”。2=“完全同意”。
 ```{r}
@@ -405,33 +406,29 @@ Alpha(day0t2_q, vars =c("obj_ses1","fri_ses2"))
 ####test-retest 计算问卷中每个原始条目的
 
 ```{r}
+# 合并两次测验数据，并新增time1和time2列区分
+# 合并两个数据集
 select_and_rbind <- function(df1, df2 ){
-  # 合并两个数据集
 df1<-df1%>%
   mutate(time=1)
 df2<-df2%>%
   mutate(time=2)
-  # 使用函数来合并day0t2_q和day3_q_all数据框
+# 使用函数来合并day0t2_q和day3_q_all数据框
 pattern <- "^ID$|^time$|^phq|^gad|^SGPS|^IM|^sde|^ses|^swb|^NPI|^LOT|^IPC|^hsns|^selfclarity|^coreself|^MorIden|^moralSeImag"
-  # 使用grep函数和pattern参数来选择匹配的列
+# 使用grep函数和pattern参数来选择匹配的列
   selected_columns_df1 <- grep(pattern, names(df1), value = TRUE)
   selected_columns_df2 <- grep(pattern, names(df2), value = TRUE)
-  
-  # 根据选中的列创建新的数据框
+# 根据选中的列创建新的数据框
   selected_df1 <- df1[, c(selected_columns_df1)]
-
   selected_df2 <- df2[, c(selected_columns_df2)]
-  
-  # 使用rbind函数将两个数据框合并在一起
+# 使用rbind函数将两个数据框合并在一起
   combined_df <- rbind(selected_df1, selected_df2)
-  
   return(combined_df)
 }
-
-
 day0t3_q <- select_and_rbind(day0t2_q, day3_q_all)####包含原始条目，量表总分，以及time列
 
 ```
+
 ```{r}
 
 testRetest(as.data.frame(day0t3_q), select = c("gad_1", "gad_2","gad_3","gad_4","gad_5","gad_6","gad_7"))
@@ -454,33 +451,27 @@ testRetest(as.data.frame(day0t3_q), select = c("ses_1", "ses_2","ses_3","ses_4",
 cor_testretest <- function(df1, df2) {
   questionnaires <- c("IPC_al", "LOT_al", "swb_al", "NPI_al", "hsns_al", "SGPS_al", "coreself_al", "ses_al", "selfclarity_al", "gad_al", "phq_al","MorIden_al","moralSeImag_al","sde_al","IM_al")
   
-  # 存储计算的重测信度
+# 存储计算的重测信度
   reliabilities <- data.frame(questionnaire = character(0), reliability = numeric(0))
-  
   for (questionnaire in questionnaires) {
-    # 选择两次测量的数据
+# 选择两次测量的数据
     data1 <- df1[, c("ID", questionnaire)]
     data2 <- df2[, c("ID", questionnaire)]
-    
-    # 合并数据框
+# 合并数据框
     combined_data <- merge(data1, data2, by = "ID", suffixes = c("_1", "_2"))
-    
-    # 计算重测信度，利用pearson积差相关
+# 计算重测信度，利用pearson积差相关
     reliability <- cor(combined_data[, paste(questionnaire, "_1", sep = "")], combined_data[, paste(questionnaire, "_2", sep = "")], method = "pearson", use = "pairwise")
-    
-    # 将相关系数转换为两位小数的数值
+# 将相关系数转换为两位小数的数值
     formatted_reliability <- sprintf("%.2f", reliability)
-    
-    # 存储结果
+# 存储结果
     reliabilities <- rbind(reliabilities, data.frame(questionnaire = questionnaire, reliability = as.numeric(formatted_reliability)))
   }
-  
-  # 输出重测信度
+# 输出重测信度
   print(reliabilities)
 }
 
 test_retest <- cor_testretest(day0t2_q, day3_q_all)
-
+write.csv(test_retest,"test_al_retest.csv")
 ```
 
 
@@ -504,7 +495,7 @@ test_retest <- cor_testretest(day0t2_q, day3_q_all)
 
 ```{r IAT}
 ##数据预处理，区分相容与不相容的block
-#IAT_all.csv,生成IAT_data, IAT_data1, 
+#IAT_all.csv,生成IAT_data, IAT_data1,  IAT_data1用于计算d值，IAT_data包括原始的相容（积极-自我，消极-朋友）与不相容（积极-朋友，消极-自我）
 IAT_data <- IAT_all%>%
   mutate(ID = as.character(ID)) %>%
   mutate(ParticipantID = as.character(ParticipantID)) %>%
@@ -583,7 +574,6 @@ IAT_data<-IAT_data%>%
     sd_rt = sd(rt),
     row_n = n(),
     se_rt = sd(rt) / sqrt(row_n))
- ## IAT_data1用于计算d值，IAT_data包括原始的相容（积极-自我，消极-朋友）与不相容（积极-朋友，消极-自我）
 ```
 
 
@@ -618,9 +608,10 @@ IAT_data_D<-IAT_data_D%>%
          ability_IAT=ability)
 
 ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
-##修改：将计算完成的IAT_data_中的"phase_017_subj_13"去除并保存为IAT_data_D2
+##修改：将计算完成的IAT_data_D中的"phase_017_subj_13"去除并保存为IAT_data_D2
 IAT_data_D2<-IAT_data_D%>%
   filter(ID!="phase_017_subj_13")
+write.csv(IAT_data_D2,"IAT_data_D2.csv")
 ```
 
 ###ALT指标提取
@@ -657,6 +648,7 @@ head(ALT2_rt)
 ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
 ALT2_rt<-ALT2_rt%>%
   filter(ID!="phase_017_subj_13")
+write.csv(ALT2_rt,"ALT2_rt.csv")
 ```
 
 ```{r}
@@ -692,6 +684,7 @@ head(ALT2_dprime)
 ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
 ALT2_dprime<-ALT2_dprime%>%
   filter(ID!="phase_017_subj_13")
+write.csv(ALT2_dprime,"ALT2_dprime.csv")
 ```
 
 
