@@ -16,25 +16,6 @@ pacman::p_load("rsample","randomForest","ranger","caret","h2o","Metrics","dynami
 
 
 ```{r}
-# 导入数据
-all_data <- read.csv("all_data.csv", stringsAsFactors = FALSE)
-
-# 删除ID列
-all_data_cleaned <- all_data %>%
-  select(-ID)
-
-#保存到新文件夹中
-
-output_folder <- "analysis_XR"
-output_file <- "all_data_cleaned.csv"
-output_path <- file.path(output_folder, output_file)
-
-write.csv(all_data_cleaned, output_path, row.names = FALSE)
-
-```
-
-
-```{r}
 
 # 设置文件路径
 file_path1 <- "./ALT2_all.csv"
@@ -51,22 +32,7 @@ write.csv(SRET,"SRET.csv")
 ```
 
 
-
-```{r}
-col<- all_data_cleaned %>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
-row<- all_data_cleaned %>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
-
-#添加
-cor_matrix <- cor(col)
-corrplot::corrplot(cor_matrix)
-```
-
-
-被试"phase_017_subj_13"的数据因脑岛技术意外缺失
-
 #数据加载
-
-
 ```{r}
 # 更新后的路径
 path <- "/Users/sunxinru/Desktop/Measuring_posit_self/4_Analysis/Analysis_data_SunXR/analysis_XR"
@@ -140,52 +106,53 @@ day0t2_q<-day0t2_q%>%
 
 ### 包括day3原始条目得分，以及量表总分，包括领域自尊
 ```{r}
+#####此步可不运行，处理后的数据已经覆盖原始数据
 #day3_q_all.csv数据处理，处理后仍保存为day3_q_all.csv
-day3_q_all<-day3_q_all%>%
-  mutate(
-    phq_al = rowSums(select(., starts_with("phq")), na.rm = TRUE),
-    gad_al = rowSums(select(., starts_with("gad")), na.rm = TRUE),
-    selfclarity_al = rowSums(select(., starts_with("selfclarity")), na.rm = TRUE),
-    ses_al = rowSums(select(., starts_with("ses")), na.rm = TRUE),
-    coreself_al =rowSums(select(., starts_with("coreself")), na.rm = TRUE),
-    SGPS_al = rowSums(select(., starts_with("SGPS")), na.rm = TRUE),
-    hsns_al = rowSums(select(., starts_with("hsns")), na.rm = TRUE),
-    NPI_al = rowSums(select(., starts_with("NPI")), na.rm = TRUE),
-    swb_al = rowSums(select(., starts_with("swb")), na.rm = TRUE),
-    LOT_al = rowSums(select(., starts_with("LOT")), na.rm = TRUE),
-    sde_al= rowSums(select(., starts_with("sde")), na.rm = TRUE),
-    IM_al= rowSums(select(., starts_with("IM")), na.rm = TRUE),
-    MorIden_al= rowSums(select(., starts_with("MorIden")), na.rm = TRUE),
-    moralSeImag_al= rowSums(select(., starts_with("moralSeImag")), na.rm = TRUE),
-    IPC_al = (rowSums(select(., starts_with("IPC")), na.rm = TRUE)+24)
-  )%>%mutate(gad = case_when(
-    gad_al >= 0 & gad_al <= 4 ~ "无",
-    gad_al >= 5 & gad_al <= 9 ~ "轻度",
-    gad_al >= 10 & gad_al <= 14 ~ "中度",
-    gad_al >= 15 ~ "重度",
-    TRUE ~ NA_character_
-  ))%>%
-   mutate(phq = case_when(
-    phq_al >= 0 & phq_al <= 4 ~ "无",
-    phq_al >= 5 & phq_al <= 9 ~ "轻度",
-    phq_al >= 10 & phq_al <= 14 ~ "中度",
-    phq_al >= 15 & phq_al <= 19 ~ "中重度",
-     phq_al >= 20  ~ "重度",
-    TRUE ~ NA_character_
-  ))%>%
-   rename(Ability =domain_rating_1,##能力
-         Attraction=domain_rating_2,##身体吸引力
-         Wealth=domain_rating_3, ##物质财富
-         Social=domain_rating_4,##社交技能
-         Moral=domain_rating_5)%>%##道德
-mutate(domain_al=Ability+Attraction+Wealth+Social+Moral)
-
-day3_q_all<-day3_q_all%>%
-  select(-c("X","trap3", "ParticipantID", "trap3_item"))
-
-##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
-day3_q_all<-day3_q_all%>%
-  filter(ID!="phase_017_subj_13")
+# day3_q_all<-day3_q_all%>%
+#   mutate(
+#     phq_al = rowSums(select(., starts_with("phq")), na.rm = TRUE),
+#     gad_al = rowSums(select(., starts_with("gad")), na.rm = TRUE),
+#     selfclarity_al = rowSums(select(., starts_with("selfclarity")), na.rm = TRUE),
+#     ses_al = rowSums(select(., starts_with("ses")), na.rm = TRUE),
+#     coreself_al =rowSums(select(., starts_with("coreself")), na.rm = TRUE),
+#     SGPS_al = rowSums(select(., starts_with("SGPS")), na.rm = TRUE),
+#     hsns_al = rowSums(select(., starts_with("hsns")), na.rm = TRUE),
+#     NPI_al = rowSums(select(., starts_with("NPI")), na.rm = TRUE),
+#     swb_al = rowSums(select(., starts_with("swb")), na.rm = TRUE),
+#     LOT_al = rowSums(select(., starts_with("LOT")), na.rm = TRUE),
+#     sde_al= rowSums(select(., starts_with("sde")), na.rm = TRUE),
+#     IM_al= rowSums(select(., starts_with("IM")), na.rm = TRUE),
+#     MorIden_al= rowSums(select(., starts_with("MorIden")), na.rm = TRUE),
+#     moralSeImag_al= rowSums(select(., starts_with("moralSeImag")), na.rm = TRUE),
+#     IPC_al = (rowSums(select(., starts_with("IPC")), na.rm = TRUE)+24)
+#   )%>%mutate(gad = case_when(
+#     gad_al >= 0 & gad_al <= 4 ~ "无",
+#     gad_al >= 5 & gad_al <= 9 ~ "轻度",
+#     gad_al >= 10 & gad_al <= 14 ~ "中度",
+#     gad_al >= 15 ~ "重度",
+#     TRUE ~ NA_character_
+#   ))%>%
+#    mutate(phq = case_when(
+#     phq_al >= 0 & phq_al <= 4 ~ "无",
+#     phq_al >= 5 & phq_al <= 9 ~ "轻度",
+#     phq_al >= 10 & phq_al <= 14 ~ "中度",
+#     phq_al >= 15 & phq_al <= 19 ~ "中重度",
+#      phq_al >= 20  ~ "重度",
+#     TRUE ~ NA_character_
+#   ))%>%
+#    rename(Ability =domain_rating_1,##能力
+#          Attraction=domain_rating_2,##身体吸引力
+#          Wealth=domain_rating_3, ##物质财富
+#          Social=domain_rating_4,##社交技能
+#          Moral=domain_rating_5)%>%##道德
+# mutate(domain_al=Ability+Attraction+Wealth+Social+Moral)
+# 
+# day3_q_all<-day3_q_all%>%
+#   select(-c("X","trap3", "ParticipantID", "trap3_item"))
+# 
+# ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
+# day3_q_all<-day3_q_all%>%
+#   filter(ID!="phase_017_subj_13")
 ```
 
 ###量表及问卷部分的描述统计【平均数，最大、最小值、skewness】
@@ -690,7 +657,7 @@ write.csv(ALT2_dprime,"ALT2_dprime.csv")
 
 ###SRET
 ```{r 修正数据}
-# 选择ID为phase_016_subj_84和phase_016_subj_85的数据，以下步骤均在修正他们的RJ_formal1
+# 选择ID为phase_016_subj_84和phase_016_subj_85的数据，以下步骤均在修正他们的RJ_formal1，将修正后的数据保存为SRET_all.csv
 selected_SRET <- SRET %>%
   filter(ID %in% c("phase_016_subj_84", "phase_016_subj_85")) %>%
   filter(screen_id == "EW_formal")%>%
@@ -735,16 +702,14 @@ SRET.0<-SRET %>%
 
 ####SRET指标提取
 ```{r}
-
+#提取不同领域的指标
 SRET_EW<-SRET.0 %>%
   mutate(ID = as.character(ID)) %>%
- # mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
+  mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
   mutate(correct= as.numeric(correct))%>% ##重编码correct
   filter(screen_id%in%c("EW_formal") )%>% #选择正式实验的数据
    filter(!word %in% c("务实", "迷糊", "坚贞", "说谎", "主见", "缓慢", "素养", "低俗"))%>% #筛除首尾的干扰词
- 
- #每个被试在 person(self,friend) * valence(positive,negative) * domain(ability,moral)的词汇评估的按'yes'比例 
-
+#每个被试在 person(self,friend) * valence(positive,negative) * domain(ability,moral)的词汇评估的按'yes'比例 
   mutate(con = paste(valence, person, sep = "_"))%>%
   group_by(ID,con,domain)%>%
   summarize(N_Yes = sum(responses == "yes"),
@@ -766,13 +731,20 @@ SRET_EW<-SRET.0 %>%
 ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
 SRET_EW<-SRET_EW%>%
   filter(ID!="phase_017_subj_13")
+write.csv(SRET_EW,"SRET_EW.csv")
+####如果无法将rt转换为数值型请在终端运行以下代码
+# # 尝试将rt列转换为数值型
+#   SRET.0$rt <- as.numeric(SRET.0$rt)
+# # 检查转换后的类型
+#   class(SRET.0$rt)
 ```
 
 
 ```{r}
+#提取SRET反应时指标
 SRET_rt<-SRET.0 %>%
   mutate(ID = as.character(ID)) %>%
- # mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
+  mutate(rt=as.numeric(rt))%>% #转变被试编号和反应时类型为字符型与数值型
   mutate(correct= as.numeric(correct))%>% ##重编码correct
   filter(screen_id%in%c("EW_formal") )%>% #选择正式实验的数据
    filter(!word %in% c("务实", "迷糊", "坚贞", "说谎", "主见", "缓慢", "素养", "低俗"))%>% #筛除首尾的干扰词
@@ -799,9 +771,11 @@ SRET_rt<-SRET.0 %>%
 ##因"phase_017_subj_13"的SRET数据部分遗失，去除他的数据
 SRET_rt<-SRET_rt%>%
   filter(ID!="phase_017_subj_13")
+write.csv(SRET_rt,"SRET_rt.csv")
 ```
 
-```{r 新旧词判断}
+```{r}
+#新旧词判断
 SRET_RJ <- SRET.0 %>%
      filter(screen_id %in% c("RJ_formal1")) %>%
       filter(!word %in% c("严谨", "认真", "刻板", "白痴", "忠实", "宽宏", "徇私", "可鄙"))%>% 
@@ -887,6 +861,14 @@ SRET_RJ_2 <- SRET.0 %>%
          ability_SRET_RJ2_d=ability)
 head(SRET_RJ_2)
 ```
+
+```{r}
+# 合并数据框
+SRET_RJ <- merge(SRET_RJ, SRET_RJ_2, by = "ID", all = TRUE)
+write.csv(SRET_RJ,"SRET_RJ.csv")
+```
+
+
 ```{r}
 all_data<-day3_q_all%>%
   merge(day0t2_q%>%select(ID,obj_ses1,fri_ses2), by = "ID", all = TRUE)%>%
@@ -895,10 +877,29 @@ all_data<-day3_q_all%>%
   merge(IAT_data_D,by="ID")%>%
   merge(SRET_EW,by="ID")%>%
   merge(SRET_rt,by="ID")%>%
-  merge(SRET_RJ,by="ID")%>%
-  merge(SRET_RJ_2,by="ID")
+  merge(SRET_RJ,by="ID")
+  #merge(SRET_RJ_2,by="ID")
 write.csv(all_data,"all_data.csv")
+# 删除ID列
+all_data_cleaned <- all_data %>%
+  select(-ID,-X)
+write.csv(all_data_cleaned, "all_data_cleaned.csv")
 ```
+
+
+
+```{r}
+col<- all_data_cleaned %>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
+row<- all_data_cleaned %>%select(-c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+
+#添加
+cor_matrix <- cor(col)
+corrplot::corrplot(cor_matrix)
+```
+
+被试"phase_017_subj_13"的数据因脑岛技术意外缺失
+
+
 
 #描述性统计
 ```{r}
