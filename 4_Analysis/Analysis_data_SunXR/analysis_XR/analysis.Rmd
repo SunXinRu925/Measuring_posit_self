@@ -366,6 +366,7 @@ Alpha(day3_q_all, "IM_", 1:20)
 ```{r}
 Alpha(day3_q_all, vars =c("Ability","Attraction","Wealth","Social","Moral") )
 ```
+
 ```{r}
 Alpha(day0t2_q, vars =c("obj_ses1","fri_ses2")) 
 ```
@@ -903,35 +904,51 @@ corrplot::corrplot(cor_matrix)
 
 #描述性统计
 ```{r}
-
+#去除量表总分以及预测变量得分，对每个条目单独分析，同时对分数进行标准化处理
 data <- all_data%>%
-  select(-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+  select(-X,-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
 data[,2:ncol(data)]<-as.data.frame(scale(data[, 2:ncol(data)]))
 write.csv(data,"data_z.csv")
+
+```
+
+
+```{r}
+#信效度分析发现hsns问卷和obj_ses1,fri_ses2信效度较低，故在本阶段剔除
+# 剔除名为hsns_1到hsns_9的列
+data_z <- read.csv("data_z.csv")
+data_z_cleaned <- data_z %>% 
+  select(-matches("hsns_[1-10]"))
+
+# 继续剔除名为obj_ses1和fri_ses2的列
+data_z_cleaned <- data_z_cleaned %>% 
+  select(-obj_ses1, -fri_ses2)
+write.csv(data_z_cleaned,"data_z_cleaned.csv")
 ```
 
 
 ##相关热图
 ```{r}
 
-data2 <- all_data%>%
+data_al <- all_data%>%
   select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
 
-data2[,1:ncol(data2)]<-as.data.frame(scale(data2[, 1:ncol(data2)]))
-write.csv(data2,"data2_z.csv")
+data_al[,1:ncol(data_al)]<-as.data.frame(scale(data_al[, 1:ncol(data_al)]))
+write.csv(data_al,"data_al_z.csv")
 ```
 
 ```{r}
-cor_data2<-data2%>%
+cor_data_al<-data_al%>%
 cor(.)
-cor_data2<-data2%>%
+cor_data_al<-data_al%>%
 cor.plot(.)
+
 ```
 #自我增强指标的相关图
 ```{r}
-corrplot(cor_data2, order = 'hclust', addrect = 4)
+corrplot(cor_data_al, order = 'hclust', addrect = 4)
 
-corrplot(cor_data2, method = 'square', diag = FALSE, order = 'hclust',
+corrplot(cor_data_al, method = 'square', diag = FALSE, order = 'hclust',
          addrect = 4, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
 #all_data%>%
 #select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
