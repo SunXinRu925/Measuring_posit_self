@@ -915,7 +915,7 @@ write.csv(data,"data_z.csv")
 
 ```{r}
 #信效度分析发现hsns问卷和obj_ses1,fri_ses2信效度较低，故在本阶段剔除
-# 剔除名为hsns_1到hsns_9的列
+# 剔除名为hsns_1到hsns_10的列
 data_z <- read.csv("data_z.csv")
 data_z_cleaned <- data_z %>% 
   select(-matches("hsns_[1-10]"))
