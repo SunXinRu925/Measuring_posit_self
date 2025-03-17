@@ -906,10 +906,29 @@ corrplot::corrplot(cor_matrix)
 ```{r}
 #去除量表总分以及预测变量得分，对每个条目单独分析，同时对分数进行标准化处理
 data <- all_data%>%
-  select(-X,-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+  select(-X,-ID,-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
 data[,2:ncol(data)]<-as.data.frame(scale(data[, 2:ncol(data)]))
 write.csv(data,"data_z.csv")
 
+```
+```{r}
+#对151个条目进行相关分析
+library(ggcorrplot)
+# 读取“data_z_cleaned.csv”文件
+data_z<- read.csv("data_z.csv")
+data_z<- data_z 
+# 计算相关矩阵
+cor_matrix <- cor(data_z, use = "complete.obs")  # 使用complete.obs处理缺失值
+# 进行相关性的显著性检验
+cor_p <- cor.mtest(data_z, conf.level = 0.95)  # 95%置信水平
+p <- ggcorrplot(cor_matrix, p.mat = cor_p$p, sig.level = 0.05, 
+                insig = "blank", lab = TRUE, method = "square",
+                lab_size = 0.01,             # 调整标签字体大小
+                colors = c("blue", "white", "red"), # 使用蓝色到红色的颜色方案
+                outline.color = "black") # 增加轮廓颜色以提高对比度
+
+# 使用ggsave保存图形，并指定宽度和高度
+ggsave("data_z_correlationheatmap.png", plot = p, width = 20, height = 20, dpi = 300)
 ```
 
 
@@ -918,13 +937,58 @@ write.csv(data,"data_z.csv")
 # 剔除名为hsns_1到hsns_10的列
 data_z <- read.csv("data_z.csv")
 data_z_cleaned <- data_z %>% 
-  select(-matches("hsns_[1-10]"))
+  select(-hsns_1,-hsns_2,-hsns_3,-hsns_4,-hsns_5,-hsns_6,-hsns_7,-hsns_8,-hsns_9,-hsns_10)
 
 # 继续剔除名为obj_ses1和fri_ses2的列
 data_z_cleaned <- data_z_cleaned %>% 
   select(-obj_ses1, -fri_ses2)
 write.csv(data_z_cleaned,"data_z_cleaned.csv")
 ```
+
+```{r}
+# 读取“data_z_cleaned.csv”文件
+data_z_cleaned <- read.csv("data_z_cleaned.csv")
+data_z_cleaned <- data_z_cleaned 
+  #select(-ID, -X)
+# 计算相关矩阵
+cor_matrix <- cor(data_z_cleaned, use = "complete.obs")  # 使用complete.obs处理缺失值
+
+# 进行相关性的显著性检验
+cor_p <- cor.mtest(data_z_cleaned, conf.level = 0.95)  # 95%置信水平
+
+p <- ggcorrplot(cor_matrix, p.mat = cor_p$p, sig.level = 0.05, 
+                insig = "blank", lab = TRUE, method = "square",
+                lab_size = 0.01,             # 调整标签字体大小
+                colors = c("blue", "white", "red"), # 使用蓝色到红色的颜色方案
+                outline.color = "black") # 增加轮廓颜色以提高对比度
+
+# 使用ggsave保存图形，并指定宽度和高度
+ggsave("data_z_cleaned_correlationheatmap.png", plot = p, width = 20, height = 20, dpi = 300)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ##相关热图
