@@ -911,6 +911,8 @@ data[,2:ncol(data)]<-as.data.frame(scale(data[, 2:ncol(data)]))
 write.csv(data,"data_z.csv")
 
 ```
+
+#认知任务与问卷报告相关性分析
 ```{r}
 #对151个条目进行相关分析
 library(ggcorrplot)
@@ -949,7 +951,6 @@ write.csv(data_z_cleaned,"data_z_cleaned.csv")
 # 读取“data_z_cleaned.csv”文件
 data_z_cleaned <- read.csv("data_z_cleaned.csv")
 data_z_cleaned <- data_z_cleaned 
-  #select(-ID, -X)
 # 计算相关矩阵
 cor_matrix <- cor(data_z_cleaned, use = "complete.obs")  # 使用complete.obs处理缺失值
 
@@ -969,7 +970,50 @@ ggsave("data_z_cleaned_correlationheatmap.png", plot = p, width = 20, height = 2
 ```
 
 
-
+#因变量预测
+```{r}
+#利用多元回归分析评估一个保留的变量被所有任务或调查变量预测的程度
+# 加载所需的包
+library(tidyverse)
+# 获取变量名，并排除变量
+variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
+# 创建一个空的data.frame来存储每个模型的R-squared值
+r_squared_results <- data.frame(variable = character(),
+                                r_squared = numeric())
+# 对每个变量进行循环，进行多元回归分析
+for (var in variables) {
+# 定义因变量和自变量
+  dependent_var <- data_z_cleaned[[var]]
+  independent_vars <- data_z_cleaned[, !names(data_z_cleaned) %in% var, drop = FALSE]
+# 拟合多元回归模型
+  model <- lm(dependent_var ~ ., data = independent_vars)
+# 提取R-squared值
+  r_squared <- summary(model)$r.squared
+# 将结果添加到data.frame中
+  r_squared_results <- rbind(r_squared_results, 
+                             data.frame(variable = var, 
+                                        r_squared = r_squared))
+}
+# 查看结果
+print(r_squared_results)
+# 绘制残差图
+plot(model$residuals)
+model_summary <- summary(model)
+# 打印摘要信息
+print(model_summary)
+# 检查系数的p值，找出显著的变量
+significant_vars <- model_summary$coefficients[model_summary$coefficients[, "Pr(>|t|)"] < 0.05, , drop = FALSE]
+# 打印显著的变量
+print(significant_vars)
+ggplot(rsquaredresults, aes(x = reorder(variable, -rsquared), y = rsquared, fill = significant)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Non-significant" = "grey", "Significant" = "blue")) +
+  labs(x = "Variable", y = "R-squared", title = "Prediction Effect of Variables with Significance Highlighted") +
+  coord_flip() +
+  theme_minimal()
+# 显示图形
+ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi = 300)
+```
 
 
 
