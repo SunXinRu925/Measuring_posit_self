@@ -902,13 +902,13 @@ corrplot::corrplot(cor_matrix)
 
 
 
-#描述性统计
+#z分数转换
 ```{r}
 #去除量表总分以及预测变量得分，对每个条目单独分析，同时对分数进行标准化处理
-data <- all_data%>%
+data1 <- all_data%>%
   select(-X,-ID,-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
-data[,2:ncol(data)]<-as.data.frame(scale(data[, 2:ncol(data)]))
-write.csv(data,"data_z.csv")
+data1[,2:ncol(data)]<-as.data.frame(scale(data1[, 2:ncol(data)]))
+write.csv(data1,"data_z.csv")
 
 ```
 
@@ -971,6 +971,84 @@ ggsave("data_z_cleaned_correlationheatmap.png", plot = p, width = 20, height = 2
 
 
 #因变量预测
+
+```{r}
+#install.packages("caret")
+library(caret)
+# 获取所有变量名
+variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
+# 初始化一个列表来保存模型结果
+model_results <- list()
+# 设置交叉验证的参数
+control <- trainControl(method = "cv", number = 10) # 10折交叉验证
+# 循环遍历每个变量
+for(target_var in variables) {
+# 排除当前目标变量，获取预测变量
+  predictors <- setdiff(variables, target_var)
+# 创建公式
+  formula <- as.formula(paste(target_var, "~", paste(predictors, collapse = "+")))
+# 训练模型，这里使用线性回归作为示例，你可以根据需要更换为其他模型
+  model <- train(formula, data = data_z_cleaned, method = "lm", trControl = control)
+# 保存模型结果
+  model_results[[target_var]] <- model
+}
+# 输出每个模型的性能
+for(target_var in names(model_results)) 
+  cat("Model performance for", target_var, ":\n")
+  print(model_results[[target_var]])
+# 初始化一个数据框来保存所有模型的性能指标
+performance_df <- data.frame(Target_Variable = character(),
+                             RMSE = numeric(),
+                             Rsquared = numeric(),
+                             MAE = numeric(),
+                             stringsAsFactors = FALSE)
+# 提取每个模型的性能指标
+for(target_var in names(model_results)) {
+  # 提取性能指标
+  results <- model_results[[target_var]]$results
+  rmse <- ifelse(exists("RMSE", results), results$RMSE, NA)
+  rsquared <- ifelse(exists("Rsquared", results), results$Rsquared, NA)
+  mae <- ifelse(exists("MAE", results), results$MAE, NA)
+# 将性能指标添加到数据框
+  performance_df <- rbind(performance_df, data.frame(Target_Variable = target_var,
+                                                     RMSE = rmse,
+                                                     Rsquared = rsquared,
+                                                     MAE = mae,
+                                                     stringsAsFactors = FALSE))
+}
+
+# 将数据框写入 CSV 文件
+write.csv(performance_df, "model_performance.csv", row.names = FALSE)
+# 加载ggplot2包
+library(ggplot2)
+
+# 读取之前保存的性能指标数据框
+performance_df <- read.csv("model_performance.csv")
+
+# 创建RMSE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, RMSE), y = RMSE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() + # 翻转坐标轴，使得变量名更容易阅读
+  labs(x = "Target Variable", y = "RMSE", title = "Root Mean Squared Error for Each Model") +
+  theme_minimal()
+
+# 创建R-squared的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, Rsquared), y = Rsquared)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "R-squared", title = "R-squared for Each Model") +
+  theme_minimal()
+
+# 创建MAE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, MAE), y = MAE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "MAE", title = "Mean Absolute Error for Each Model") +
+  theme_minimal()
+
+
+```
+
 ```{r}
 #利用多元回归分析评估一个保留的变量被所有任务或调查变量预测的程度
 # 加载所需的包
@@ -1014,9 +1092,6 @@ ggplot(rsquaredresults, aes(x = reorder(variable, -rsquared), y = rsquared, fill
 # 显示图形
 ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi = 300)
 ```
-
-
-
 
 
 
