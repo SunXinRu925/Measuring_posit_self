@@ -1112,7 +1112,7 @@ ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi =
 
 ##相关热图
 ```{r}
-
+#计算各问卷总分和认知任务相关的z分数
 data_al <- all_data%>%
   select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
 
@@ -1121,12 +1121,31 @@ write.csv(data_al,"data_al_z.csv")
 ```
 
 ```{r}
+#计算相关并生成热图（总分）
+cor_matrix <- cor(data_al, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "相关系数热图"
+)
+
+```
+
+```{r}
+#计算相关并绘图（st）
 cor_data_al<-data_al%>%
 cor(.)
 cor_data_al<-data_al%>%
 cor.plot(.)
 
 ```
+
+
+
 #自我增强指标的相关图
 ```{r}
 corrplot(cor_data_al, order = 'hclust', addrect = 4)
