@@ -887,7 +887,85 @@ all_data_cleaned <- all_data %>%
 write.csv(all_data_cleaned, "all_data_cleaned.csv")
 ```
 
+#问卷报告与认知任务相关性分析
+##相关：1.各条目相关；2.得分总分相关；3.问卷的相关；4.认知任务相关（同时绘制热图）
 
+# 1.对问卷+认知任务151个条目标准化
+```{r}
+#去除量表总分以及预测变量得分，对每个条目单独分析，同时对分数进行标准化处理
+data_z <- all_data_cleaned%>%
+  select(-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+data_z[,2:ncol(data)]<-as.data.frame(scale(data_z[, 2:ncol(data)]))
+write.csv(data_z,"data_z.csv")
+```
+
+```{r}
+library(ggcorrplot)
+cor_matrix <- cor(data_z, use = "complete.obs")  # 使用complete.obs处理缺失值
+# 进行相关性的显著性检验
+cor_p <- cor.mtest(data_z, conf.level = 0.95)  # 95%置信水平
+p <- ggcorrplot(cor_matrix, p.mat = cor_p$p, sig.level = 0.05, 
+                insig = "blank", lab = TRUE, method = "square",
+                lab_size = 0.1, # 调整标签字体大小
+                colors = c("blue", "white", "red"), # 使用蓝色到红色的颜色方案
+                outline.color = "black") # 增加轮廓颜色以提高对比度
+print(p)
+# 使用ggsave保存图形，并指定宽度和高度
+#ggsave("data_z_correlationheatmap.png", plot = p, width = 20, height = 20, dpi = 300)
+```
+
+#2.问卷总分和认知任务标准化
+```{r}
+#计算各问卷总分和认知任务相关的z分数
+data_al <- all_data_cleaned%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+
+data_al[,1:ncol(data_al)]<-as.data.frame(scale(data_al[, 1:ncol(data_al)]))
+write.csv(data_al,"data_al_z.csv")
+```
+
+```{r}
+#计算相关并生成热图（总分）
+cor_matrix <- cor(data_al, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "相关系数热图"
+)
+```
+
+#3.问卷得分总分标准化
+```{r}
+data_q <- all_data_cleaned%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+data_q[,1:ncol(data_q)]<-as.data.frame(scale(data_q[, 1:ncol(data_q)]))
+write.csv(data_q,"data_q_z.csv")
+```
+
+
+
+#问卷报告与认知任务相关性分析
+##相关：1.各条目相关；2.得分总分相关；3.问卷的相关；4.认知任务相关（同时绘制热图）
+##保留一个变量时其他变量的预测程度（线性）
+
+#对各因变量（149个条目）的降维分析
+##问卷与认知任务分别降维
+##集体降维
+###方法参考：EFA/PCA/聚类
+
+#对降维得到因子载荷的再降维
+##问卷与认知任务分别降维
+##集体降维
+
+#增加部分：降维后再次相关分析，进一步验证低相关性和自我增强主体存在多个维度
+
+#对现实结果的预测：抑郁/焦虑/拖延/主观幸福感
+##机器学习方法
 
 ```{r}
 col<- all_data_cleaned %>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
@@ -1096,20 +1174,6 @@ ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi =
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ##相关热图
 ```{r}
 #计算各问卷总分和认知任务相关的z分数
@@ -1134,32 +1198,22 @@ corrplot(
 )
 
 ```
-
-```{r}
 #计算相关并绘图（st）
-cor_data_al<-data_al%>%
-cor(.)
-cor_data_al<-data_al%>%
-cor.plot(.)
+```{r}
+#cor_data_al<-data_al%>%
+#cor(.)
+#cor_data_al<-data_al%>%
+#cor.plot(.)
 
 ```
-
-
-
 #自我增强指标的相关图
 ```{r}
-corrplot(cor_data_al, order = 'hclust', addrect = 4)
+#corrplot(cor_data_al, order = 'hclust', addrect = 4)
 
-corrplot(cor_data_al, method = 'square', diag = FALSE, order = 'hclust',
-         addrect = 4, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
-#all_data%>%
-#select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
-#rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,"NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
-#scale(.)%>%
-#cor(.)%>%
-#corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>%
-#corrRect(name = c("SCS",'ability_ALT_rt','moral_SRET_RJ2_d'))
+#corrplot(cor_data_al, method = 'square', diag = FALSE, order = 'hclust',
+        # addrect = 4, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
 ```
+
 
 ```{r}
 all_data%>%
