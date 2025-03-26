@@ -890,12 +890,13 @@ write.csv(all_data_cleaned, "all_data_cleaned.csv")
 #问卷报告与认知任务相关性分析
 ##相关：1.各条目相关；2.得分总分相关；3.问卷的相关；4.认知任务相关（同时绘制热图）
 
-# 1.对问卷+认知任务151个条目标准化
+# 1.对问卷和认知任务各条目标准化（151列）
 ```{r}
 #去除量表总分以及预测变量得分，对每个条目单独分析，同时对分数进行标准化处理
 data_z <- all_data_cleaned%>%
   select(-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
-data_z[,2:ncol(data)]<-as.data.frame(scale(data_z[, 2:ncol(data)]))
+# 对所有列进行z分数标准化处理
+data_z <- scale(data_z)
 write.csv(data_z,"data_z.csv")
 ```
 
@@ -914,13 +915,12 @@ print(p)
 #ggsave("data_z_correlationheatmap.png", plot = p, width = 20, height = 20, dpi = 300)
 ```
 
-#2.问卷总分和认知任务标准化
+#2.问卷总分和认知任务标准化（32列）
 ```{r}
 #计算各问卷总分和认知任务相关的z分数
 data_al <- all_data_cleaned%>%
   select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
-
-data_al[,1:ncol(data_al)]<-as.data.frame(scale(data_al[, 1:ncol(data_al)]))
+data_al <- scale(data_al)
 write.csv(data_al,"data_al_z.csv")
 ```
 
@@ -939,11 +939,11 @@ corrplot(
 )
 ```
 
-#3.问卷总分标准化
+#3.问卷总分标准化（11列）
 ```{r}
 data_q <- all_data_cleaned%>%
   select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")))
-data_q[,1:ncol(data_q)]<-as.data.frame(scale(data_q[, 1:ncol(data_q)]))
+data_q <- scale(data_q)
 write.csv(data_q,"data_q_z.csv")
 ```
 
@@ -960,11 +960,12 @@ corrplot(
   title = "问卷总分相关系数热图"
 )
 ```
-#4.认知任务标准化
+
+#4.认知任务标准化（14列）
 ```{r}
 data_task <- all_data_cleaned%>%
   select(c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
-data_task[,1:ncol(data_task)]<-as.data.frame(scale(data_task[, 1:ncol(data_task)]))
+data_task <- scale(data_task)
 write.csv(data_task,"data_q_task.csv")
 ```
 
@@ -1107,6 +1108,25 @@ ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi =
 
 #对各因变量（151个条目）的降维分析
 ##问卷与认知任务分别降维
+#对问卷进行降维
+```{r}
+install.packages("prcomp")
+library(prcomp)
+
+# 读取CSV文件中的第1到130列
+data_z_PCA <- read_csv("data_z.csv")[, 1:130]
+
+# 对这130列进行PCA降维处理
+pca_result <- prcomp(data_z_PCA, scale. = TRUE)
+
+# 提取PCA结果中的主成分得分
+pca_scores <- pca_result$x
+
+# 将处理后的结果保存为data_z_PCA.csv
+write_csv(pca_scores, "data_z_PCA.csv")
+
+```
+
 ##集体降维
 ###方法参考：EFA/PCA/聚类
 
