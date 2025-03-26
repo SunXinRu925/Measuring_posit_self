@@ -939,21 +939,173 @@ corrplot(
 )
 ```
 
-#3.问卷得分总分标准化
+#3.问卷总分标准化
 ```{r}
 data_q <- all_data_cleaned%>%
-  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")))
 data_q[,1:ncol(data_q)]<-as.data.frame(scale(data_q[, 1:ncol(data_q)]))
 write.csv(data_q,"data_q_z.csv")
 ```
 
+```{r}
+cor_matrix <- cor(data_q, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "问卷总分相关系数热图"
+)
+```
+#4.认知任务标准化
+```{r}
+data_task <- all_data_cleaned%>%
+  select(c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+data_task[,1:ncol(data_task)]<-as.data.frame(scale(data_task[, 1:ncol(data_task)]))
+write.csv(data_task,"data_q_task.csv")
+```
 
+```{r}
+cor_matrix <- cor(data_task, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "认知任务相关系数热图"
+)
+```
 
-#问卷报告与认知任务相关性分析
-##相关：1.各条目相关；2.得分总分相关；3.问卷的相关；4.认知任务相关（同时绘制热图）
 ##保留一个变量时其他变量的预测程度（线性）
+```{r}
+#install.packages("caret")
+library(caret)
+# 获取所有变量名
+variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
+# 初始化一个列表来保存模型结果
+model_results <- list()
+# 设置交叉验证的参数
+control <- trainControl(method = "cv", number = 10) # 10折交叉验证
+# 循环遍历每个变量
+for(target_var in variables) {
+# 排除当前目标变量，获取预测变量
+  predictors <- setdiff(variables, target_var)
+# 创建公式
+  formula <- as.formula(paste(target_var, "~", paste(predictors, collapse = "+")))
+# 训练模型，这里使用线性回归作为示例，你可以根据需要更换为其他模型
+  model <- train(formula, data = data_z_cleaned, method = "lm", trControl = control)
+# 保存模型结果
+  model_results[[target_var]] <- model
+}
+# 输出每个模型的性能
+for(target_var in names(model_results)) 
+  cat("Model performance for", target_var, ":\n")
+  print(model_results[[target_var]])
+# 初始化一个数据框来保存所有模型的性能指标
+performance_df <- data.frame(Target_Variable = character(),
+                             RMSE = numeric(),
+                             Rsquared = numeric(),
+                             MAE = numeric(),
+                             stringsAsFactors = FALSE)
+# 提取每个模型的性能指标
+for(target_var in names(model_results)) {
+  # 提取性能指标
+  results <- model_results[[target_var]]$results
+  rmse <- ifelse(exists("RMSE", results), results$RMSE, NA)
+  rsquared <- ifelse(exists("Rsquared", results), results$Rsquared, NA)
+  mae <- ifelse(exists("MAE", results), results$MAE, NA)
+# 将性能指标添加到数据框
+  performance_df <- rbind(performance_df, data.frame(Target_Variable = target_var,
+                                                     RMSE = rmse,
+                                                     Rsquared = rsquared,
+                                                     MAE = mae,
+                                                     stringsAsFactors = FALSE))
+}
 
-#对各因变量（149个条目）的降维分析
+# 将数据框写入 CSV 文件
+write.csv(performance_df, "model_performance.csv", row.names = FALSE)
+# 加载ggplot2包
+library(ggplot2)
+
+# 读取之前保存的性能指标数据框
+performance_df <- read.csv("model_performance.csv")
+
+# 创建RMSE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, RMSE), y = RMSE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() + # 翻转坐标轴，使得变量名更容易阅读
+  labs(x = "Target Variable", y = "RMSE", title = "Root Mean Squared Error for Each Model") +
+  theme_minimal()
+
+# 创建R-squared的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, Rsquared), y = Rsquared)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "R-squared", title = "R-squared for Each Model") +
+  theme_minimal()
+
+# 创建MAE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, MAE), y = MAE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "MAE", title = "Mean Absolute Error for Each Model") +
+  theme_minimal()
+
+```
+
+```{r}
+#利用多元回归分析评估一个保留的变量被所有任务或调查变量预测的程度
+# 加载所需的包
+library(tidyverse)
+# 获取变量名，并排除变量
+variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
+# 创建一个空的data.frame来存储每个模型的R-squared值
+r_squared_results <- data.frame(variable = character(),
+                                r_squared = numeric())
+# 对每个变量进行循环，进行多元回归分析
+for (var in variables) {
+# 定义因变量和自变量
+  dependent_var <- data_z_cleaned[[var]]
+  independent_vars <- data_z_cleaned[, !names(data_z_cleaned) %in% var, drop = FALSE]
+# 拟合多元回归模型
+  model <- lm(dependent_var ~ ., data = independent_vars)
+# 提取R-squared值
+  r_squared <- summary(model)$r.squared
+# 将结果添加到data.frame中
+  r_squared_results <- rbind(r_squared_results, 
+                             data.frame(variable = var, 
+                                        r_squared = r_squared))
+}
+# 查看结果
+print(r_squared_results)
+# 绘制残差图
+plot(model$residuals)
+model_summary <- summary(model)
+# 打印摘要信息
+print(model_summary)
+# 检查系数的p值，找出显著的变量
+significant_vars <- model_summary$coefficients[model_summary$coefficients[, "Pr(>|t|)"] < 0.05, , drop = FALSE]
+# 打印显著的变量
+print(significant_vars)
+ggplot(rsquaredresults, aes(x = reorder(variable, -rsquared), y = rsquared, fill = significant)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Non-significant" = "grey", "Significant" = "blue")) +
+  labs(x = "Variable", y = "R-squared", title = "Prediction Effect of Variables with Significance Highlighted") +
+  coord_flip() +
+  theme_minimal()
+# 显示图形
+ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi = 300)
+
+```
+
+
+#对各因变量（151个条目）的降维分析
 ##问卷与认知任务分别降维
 ##集体降维
 ###方法参考：EFA/PCA/聚类
