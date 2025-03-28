@@ -887,7 +887,306 @@ all_data_cleaned <- all_data %>%
 write.csv(all_data_cleaned, "all_data_cleaned.csv")
 ```
 
+#问卷报告与认知任务相关性分析
+##相关：1.各条目相关；2.得分总分相关；3.问卷的相关；4.认知任务相关（同时绘制热图）
 
+# 1.对问卷和认知任务各条目标准化（151列）
+```{r}
+#去除量表总分以及预测变量得分，对每个条目单独分析，同时对分数进行标准化处理
+data_z <- all_data_cleaned%>%
+  select(-matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+# 对所有列进行z分数标准化处理
+data_z <- scale(data_z)
+write.csv(data_z,"data_z.csv")
+```
+
+```{r}
+library(ggcorrplot)
+cor_matrix <- cor(data_z, use = "complete.obs")  # 使用complete.obs处理缺失值
+# 进行相关性的显著性检验
+cor_p <- cor.mtest(data_z, conf.level = 0.95)  # 95%置信水平
+p <- ggcorrplot(cor_matrix, p.mat = cor_p$p, sig.level = 0.05, 
+                insig = "blank", lab = TRUE, method = "square",
+                lab_size = 0.1, # 调整标签字体大小
+                colors = c("blue", "white", "red"), # 使用蓝色到红色的颜色方案
+                outline.color = "black") # 增加轮廓颜色以提高对比度
+print(p)
+# 使用ggsave保存图形，并指定宽度和高度
+#ggsave("data_z_correlationheatmap.png", plot = p, width = 20, height = 20, dpi = 300)
+```
+
+#2.问卷总分和认知任务标准化（32列）
+```{r}
+#计算各问卷总分和认知任务相关的z分数
+data_al <- all_data_cleaned%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+data_al <- scale(data_al)
+write.csv(data_al,"data_al_z.csv")
+```
+
+```{r}
+#计算相关并生成热图（总分）
+cor_matrix <- cor(data_al, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "相关系数热图"
+)
+```
+
+#3.问卷总分标准化（11列）
+```{r}
+data_q <- all_data_cleaned%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")))
+data_q <- scale(data_q)
+write.csv(data_q,"data_q_z.csv")
+```
+
+```{r}
+cor_matrix <- cor(data_q, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "问卷总分相关系数热图"
+)
+```
+
+#4.认知任务标准化（14列）
+```{r}
+data_task <- all_data_cleaned%>%
+  select(c("ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
+data_task <- scale(data_task)
+write.csv(data_task,"data_q_task.csv")
+```
+
+```{r}
+cor_matrix <- cor(data_task, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "认知任务相关系数热图"
+)
+```
+
+##保留一个变量时其他变量的预测程度（线性）
+```{r}
+#install.packages("caret")
+library(caret)
+# 获取所有变量名
+variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
+# 初始化一个列表来保存模型结果
+model_results <- list()
+# 设置交叉验证的参数
+control <- trainControl(method = "cv", number = 10) # 10折交叉验证
+# 循环遍历每个变量
+for(target_var in variables) {
+# 排除当前目标变量，获取预测变量
+  predictors <- setdiff(variables, target_var)
+# 创建公式
+  formula <- as.formula(paste(target_var, "~", paste(predictors, collapse = "+")))
+# 训练模型，这里使用线性回归作为示例，你可以根据需要更换为其他模型
+  model <- train(formula, data = data_z_cleaned, method = "lm", trControl = control)
+# 保存模型结果
+  model_results[[target_var]] <- model
+}
+# 输出每个模型的性能
+for(target_var in names(model_results)) 
+  cat("Model performance for", target_var, ":\n")
+  print(model_results[[target_var]])
+# 初始化一个数据框来保存所有模型的性能指标
+performance_df <- data.frame(Target_Variable = character(),
+                             RMSE = numeric(),
+                             Rsquared = numeric(),
+                             MAE = numeric(),
+                             stringsAsFactors = FALSE)
+# 提取每个模型的性能指标
+for(target_var in names(model_results)) {
+  # 提取性能指标
+  results <- model_results[[target_var]]$results
+  rmse <- ifelse(exists("RMSE", results), results$RMSE, NA)
+  rsquared <- ifelse(exists("Rsquared", results), results$Rsquared, NA)
+  mae <- ifelse(exists("MAE", results), results$MAE, NA)
+# 将性能指标添加到数据框
+  performance_df <- rbind(performance_df, data.frame(Target_Variable = target_var,
+                                                     RMSE = rmse,
+                                                     Rsquared = rsquared,
+                                                     MAE = mae,
+                                                     stringsAsFactors = FALSE))
+}
+
+# 将数据框写入 CSV 文件
+write.csv(performance_df, "model_performance.csv", row.names = FALSE)
+# 加载ggplot2包
+library(ggplot2)
+
+# 读取之前保存的性能指标数据框
+performance_df <- read.csv("model_performance.csv")
+
+# 创建RMSE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, RMSE), y = RMSE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() + # 翻转坐标轴，使得变量名更容易阅读
+  labs(x = "Target Variable", y = "RMSE", title = "Root Mean Squared Error for Each Model") +
+  theme_minimal()
+
+# 创建R-squared的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, Rsquared), y = Rsquared)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "R-squared", title = "R-squared for Each Model") +
+  theme_minimal()
+
+# 创建MAE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, MAE), y = MAE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "MAE", title = "Mean Absolute Error for Each Model") +
+  theme_minimal()
+
+```
+
+```{r}
+#利用多元回归分析评估一个保留的变量被所有任务或调查变量预测的程度
+# 加载所需的包
+library(tidyverse)
+# 获取变量名，并排除变量
+variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
+# 创建一个空的data.frame来存储每个模型的R-squared值
+r_squared_results <- data.frame(variable = character(),
+                                r_squared = numeric())
+# 对每个变量进行循环，进行多元回归分析
+for (var in variables) {
+# 定义因变量和自变量
+  dependent_var <- data_z_cleaned[[var]]
+  independent_vars <- data_z_cleaned[, !names(data_z_cleaned) %in% var, drop = FALSE]
+# 拟合多元回归模型
+  model <- lm(dependent_var ~ ., data = independent_vars)
+# 提取R-squared值
+  r_squared <- summary(model)$r.squared
+# 将结果添加到data.frame中
+  r_squared_results <- rbind(r_squared_results, 
+                             data.frame(variable = var, 
+                                        r_squared = r_squared))
+}
+# 查看结果
+print(r_squared_results)
+# 绘制残差图
+plot(model$residuals)
+model_summary <- summary(model)
+# 打印摘要信息
+print(model_summary)
+# 检查系数的p值，找出显著的变量
+significant_vars <- model_summary$coefficients[model_summary$coefficients[, "Pr(>|t|)"] < 0.05, , drop = FALSE]
+# 打印显著的变量
+print(significant_vars)
+ggplot(rsquaredresults, aes(x = reorder(variable, -rsquared), y = rsquared, fill = significant)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("Non-significant" = "grey", "Significant" = "blue")) +
+  labs(x = "Variable", y = "R-squared", title = "Prediction Effect of Variables with Significance Highlighted") +
+  coord_flip() +
+  theme_minimal()
+# 显示图形
+ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi = 300)
+
+```
+
+
+#对各因变量（151个条目）的降维分析
+##问卷与认知任务分别降维
+###对问卷进行降维（131列）
+```{r}
+# 安装和加载所需的包
+#install.packages("FactoMineR")
+#install.packages("factoextra") # 用于结果的可视化
+#library(FactoMineR)
+#library(factoextra)
+
+# 读取CSV文件中的第1到131列
+data_z_PCA1 <- read_csv("data_z.csv")[, 1:131]
+# 对这131列进行PCA降维处理
+pca_result1 <- PCA(data_z_PCA1, graph = FALSE)
+# 查看PCA结果
+print(pca_result1)
+# 查看所有主成分
+print(pca_result1$eig)
+# 生成碎石图
+fviz_eig(pca_result1, addlabels = TRUE, ylim = c(0, max(pca_result1$eig) + 0.1 * max(pca_result1$eig)))
+#使用factoextra包进行结果的可视化
+fviz_pca_ind(pca_result1, col.ind = "cos2", 
+              gradient.cols = c("blue", "red"), 
+              repel = TRUE # Avoid text overlapping
+)
+pca_scores1 <- as.data.frame(pca_result1$ind$coord)
+write.csv(pca_scores1, "data_z_PCA1.csv", row.names = FALSE)
+```
+
+```{r}
+library(readr)
+library(psych)
+# 进行探索性因素分析
+efa_result <- fa(r = cor(data_z_PCA1), nfactors = 6, rotate = "none", fm = "minres")
+
+# 打印EFA结果
+print(efa_result)
+
+# 查看特征值
+print(efa_result$values)
+
+# 绘制碎石图
+fa.plot(efa_result, main = "Scree Plot")
+
+```
+
+
+
+###对认知任务进行降维（14列）
+```{r}
+# 读取CSV文件中的第1到131列
+data_z_PCA2 <- read_csv("data_z.csv")[, 139:152]
+# 对这131列进行PCA降维处理
+pca_result2 <- PCA(data_z_PCA2, graph = FALSE)
+# 查看PCA结果
+print(pca_result2)
+# 查看所有主成分
+print(pca_result2$eig)
+# 生成碎石图
+fviz_eig(pca_result2, addlabels = TRUE, ylim = c(0, max(pca_result2$eig) + 0.1 * max(pca_result2$eig)))
+#使用factoextra包进行结果的可视化
+fviz_pca_ind(pca_result2, col.ind = "cos2", 
+              gradient.cols = c("blue", "red"), 
+              repel = TRUE # Avoid text overlapping
+)
+pca_scores2 <- as.data.frame(pca_result2$ind$coord)
+write.csv(pca_scores2, "data_z_PCA2.csv", row.names = FALSE)
+```
+
+
+##集体降维
+###方法参考：EFA/PCA/聚类
+
+#对降维得到因子载荷的再降维
+##问卷与认知任务分别降维
+##集体降维
+
+#增加部分：降维后再次相关分析，进一步验证低相关性和自我增强主体存在多个维度
+
+#对现实结果的预测：抑郁/焦虑/拖延/主观幸福感
+##机器学习方法
 
 ```{r}
 col<- all_data_cleaned %>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
@@ -1096,23 +1395,9 @@ ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi =
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ##相关热图
 ```{r}
-
+#计算各问卷总分和认知任务相关的z分数
 data_al <- all_data%>%
   select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))
 
@@ -1121,26 +1406,35 @@ write.csv(data_al,"data_al_z.csv")
 ```
 
 ```{r}
-cor_data_al<-data_al%>%
-cor(.)
-cor_data_al<-data_al%>%
-cor.plot(.)
+#计算相关并生成热图（总分）
+cor_matrix <- cor(data_al, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "相关系数热图"
+)
+
+```
+#计算相关并绘图（st）
+```{r}
+#cor_data_al<-data_al%>%
+#cor(.)
+#cor_data_al<-data_al%>%
+#cor.plot(.)
 
 ```
 #自我增强指标的相关图
 ```{r}
-corrplot(cor_data_al, order = 'hclust', addrect = 4)
+#corrplot(cor_data_al, order = 'hclust', addrect = 4)
 
-corrplot(cor_data_al, method = 'square', diag = FALSE, order = 'hclust',
-         addrect = 4, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
-#all_data%>%
-#select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"))%>%
-#rename("SCS"=selfclarity_al,"RSES" =ses_al,"CSE" =coreself_al,"NPI"=NPI_al,"HSNS"=hsns_al,"LOT"=LOT_al,"IPC"=IPC_al,"SDE"=sde_al,"IM"=IM_al,"MI"=MorIden_al,"MSI"=moralSeImag_al)%>%
-#scale(.)%>%
-#cor(.)%>%
-#corrplot(., order = 'original', col.lim=c(-0.5, 0.5)) %>%
-#corrRect(name = c("SCS",'ability_ALT_rt','moral_SRET_RJ2_d'))
+#corrplot(cor_data_al, method = 'square', diag = FALSE, order = 'hclust',
+        # addrect = 4, rect.col = 'blue', rect.lwd = 3, tl.pos = 'd')
 ```
+
 
 ```{r}
 all_data%>%
