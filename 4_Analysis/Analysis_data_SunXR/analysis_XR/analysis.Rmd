@@ -1108,24 +1108,73 @@ ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi =
 
 #对各因变量（151个条目）的降维分析
 ##问卷与认知任务分别降维
-#对问卷进行降维
+###对问卷进行降维（131列）
 ```{r}
-install.packages("prcomp")
-library(prcomp)
+# 安装和加载所需的包
+#install.packages("FactoMineR")
+#install.packages("factoextra") # 用于结果的可视化
+#library(FactoMineR)
+#library(factoextra)
 
-# 读取CSV文件中的第1到130列
-data_z_PCA <- read_csv("data_z.csv")[, 1:130]
+# 读取CSV文件中的第1到131列
+data_z_PCA1 <- read_csv("data_z.csv")[, 1:131]
+# 对这131列进行PCA降维处理
+pca_result1 <- PCA(data_z_PCA1, graph = FALSE)
+# 查看PCA结果
+print(pca_result1)
+# 查看所有主成分
+print(pca_result1$eig)
+# 生成碎石图
+fviz_eig(pca_result1, addlabels = TRUE, ylim = c(0, max(pca_result1$eig) + 0.1 * max(pca_result1$eig)))
+#使用factoextra包进行结果的可视化
+fviz_pca_ind(pca_result1, col.ind = "cos2", 
+              gradient.cols = c("blue", "red"), 
+              repel = TRUE # Avoid text overlapping
+)
+pca_scores1 <- as.data.frame(pca_result1$ind$coord)
+write.csv(pca_scores1, "data_z_PCA1.csv", row.names = FALSE)
+```
 
-# 对这130列进行PCA降维处理
-pca_result <- prcomp(data_z_PCA, scale. = TRUE)
+```{r}
+library(readr)
+library(psych)
+# 进行探索性因素分析
+efa_result <- fa(r = cor(data_z_PCA1), nfactors = 6, rotate = "none", fm = "minres")
 
-# 提取PCA结果中的主成分得分
-pca_scores <- pca_result$x
+# 打印EFA结果
+print(efa_result)
 
-# 将处理后的结果保存为data_z_PCA.csv
-write_csv(pca_scores, "data_z_PCA.csv")
+# 查看特征值
+print(efa_result$values)
+
+# 绘制碎石图
+fa.plot(efa_result, main = "Scree Plot")
 
 ```
+
+
+
+###对认知任务进行降维（14列）
+```{r}
+# 读取CSV文件中的第1到131列
+data_z_PCA2 <- read_csv("data_z.csv")[, 139:152]
+# 对这131列进行PCA降维处理
+pca_result2 <- PCA(data_z_PCA2, graph = FALSE)
+# 查看PCA结果
+print(pca_result2)
+# 查看所有主成分
+print(pca_result2$eig)
+# 生成碎石图
+fviz_eig(pca_result2, addlabels = TRUE, ylim = c(0, max(pca_result2$eig) + 0.1 * max(pca_result2$eig)))
+#使用factoextra包进行结果的可视化
+fviz_pca_ind(pca_result2, col.ind = "cos2", 
+              gradient.cols = c("blue", "red"), 
+              repel = TRUE # Avoid text overlapping
+)
+pca_scores2 <- as.data.frame(pca_result2$ind$coord)
+write.csv(pca_scores2, "data_z_PCA2.csv", row.names = FALSE)
+```
+
 
 ##集体降维
 ###方法参考：EFA/PCA/聚类
