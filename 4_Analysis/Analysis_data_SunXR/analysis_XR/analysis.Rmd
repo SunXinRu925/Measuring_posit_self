@@ -1113,7 +1113,7 @@ ggsave("variablepredictioneffect_significant.png", width = 10, height = 8, dpi =
 #对各因变量（149个条目）的降维分析
 
 ##问卷与认知任务分别降维
-###对问卷进行降维（137列）
+###对问卷进行降维（135列）
 ```{r}
 #PCA分析
 
@@ -1153,8 +1153,10 @@ library(psych)
 efa_result1 <- fa(r = cor(data_z_PCA1), nfactors = 12, rotate = "none", fm = "minres")
 # 打印EFA结果
 print(efa_result1)
-# 查看特征值
-print(efa_result1$values)
+# 提取因子载荷
+efa_result1_loadings <- efa_result1$loadings
+# 将因子载荷保存为.csv文件
+write.csv(efa_result1_loadings[-1,], "efa_result1_loadings.csv")
 # 提取特征值
 eigenvalues1 <- efa_result1$values
 # 绘制碎石图
@@ -1174,6 +1176,33 @@ if(length(elbow_index) > 0) {
 }
 ```
 
+```{r}
+# 进行探索性因素分析
+efa_q <- fa(r = cor(data_q), nfactors = 6, rotate = "none", fm = "minres")
+# 打印EFA结果
+print(efa_q)
+# 提取因子载荷
+efa_q_loadings <- efa_q$loadings
+# 将因子载荷保存为.csv文件
+write.csv(efa_q_loadings, "efa_q_loadings.csv")
+# 提取特征值
+eigenvalues_q <- efa_q$values
+# 绘制碎石图
+plot(eigenvalues_q, type = "b", pch = 19, lwd = 2,
+     xlab = "Factors", ylab = "Eigenvalues_q", main = "Scree Plot")
+
+# 标注肘点纵坐标
+# 寻找第一个特征值小于1的因子
+elbow_index <- which(eigenvalues_q < 1)[1]
+if(length(elbow_index) > 0) {
+  # 标注肘点
+  points(elbow_index, eigenvalues_q[elbow_index], col = "red", pch = 4, cex = 2)
+  text(elbow_index, eigenvalues_q[elbow_index], labels = round(eigenvalues_q[elbow_index], 2), pos = 3, col = "red")
+} else {
+  # 如果所有特征值都大于或等于1，则没有明显的肘点
+  print("No eigenvalue_q less than 1, no clear elbow point.")
+}
+```
 
 
 ###对认知任务进行降维（14列）
@@ -1204,8 +1233,10 @@ write.csv(pca_scores2, "data_z_PCA2.csv", row.names = FALSE)
 efa_result2 <- fa(r = cor(data_z_PCA2), nfactors = 6, rotate = "none", fm = "minres")
 # 打印EFA结果
 print(efa_result2)
-# 查看特征值
-print(efa_result2$values)
+# 提取因子载荷
+efa_result2_loadings <- efa_result2$loadings
+# 将因子载荷保存为.csv文件
+write.csv(efa_result2_loadings, "efa_result2_loadings.csv")
 # 提取特征值
 eigenvalues2 <- efa_result2$values
 plot(eigenvalues2, type = "b", pch = 19, lwd = 2,
@@ -1251,12 +1282,60 @@ if(length(elbow_index) > 0) {
 }
 ```
 
+#增加部分：降维后再次相关分析，进一步验证低相关性和自我增强主体存在多个维度
+```{r}
+# 安装必要的包
+#install.packages("lavaan")
+library(lavaan)
+# 确保两个数据集的样本数量相同
+#stopif(nrow(data_z_PCA1) != nrow(data_z_PCA2), "两个数据集的样本数量不匹配")
+
+# 合并数据集
+data<-cbind(pca_scores1, pca_scores2)
+
+# 定义SEM模型
+# 这里需要根据你的具体研究假设来定义
+model_description <-
+'
+PCA1 =~ Dim.1 + Dim.2 + Dim.3 + Dim.4 + Dim.5
+PCA2 =~ Dim.1 + Dim.2 + Dim.3 + Dim.4 + Dim.5
+
+# 定义潜变量之间的关系
+PCA1 ~~ PCA2
+
+# 允许潜变量有非零方差
+PCA1 ~~ PCA1
+PCA2 ~~ PCA2
+'
+# 拟合模型
+fit <- sem(model_description, data = data)
+
+# 输出结果
+summary(fit)
+
+# 可视化模型结果（如果需要）
+if (!require(semPlot)) {
+  install.packages("semPlot")
+  library(semPlot)
+}
+semPaths(fit, "est", layout = "spring")
+```
+
+
+```{r}
+# 计算相关系数
+cor_matrix <- cor(pca_scores1, pca_scores2)
+
+# 打印相关系数矩阵
+print(cor_matrix)
+```
+
+
 
 #对降维得到因子载荷的再降维
 ##问卷与认知任务分别降维
 ##集体降维
 
-#增加部分：降维后再次相关分析，进一步验证低相关性和自我增强主体存在多个维度
 
 #对现实结果的预测：抑郁/焦虑/拖延/主观幸福感
 ##机器学习方法
@@ -2255,7 +2334,7 @@ For regression, we use averaging
 节点大小可能是控制树复杂性最常见的超参数，大多数实现使用默认值1进行分类，5进行回归，因为这些值往往产生良好的结果(Di'az-Uriarte和De Andres 2006;Goldstein, Polley, and Briggs 2011).然而，Segal(2004)表明，如果你的数据有许多嘈杂的预测器，并且更高的try值表现最好，那么通过增加节点大小(即。(降低树的深度和复杂性)。
 此外，如果计算时间是一个问题，那么通常可以通过增加节点大小来大幅减少运行时间，并且对误差估计的影响很小，如图11.3所示。
 
-```{r Tuning the parameters}
+```{r Tuning the parameters1}
 #调参，选择maxnodes和ntree
 # If training the model takes too long try setting up lower value of N
 
@@ -2662,7 +2741,7 @@ rf_train3 <- training(rf_split3)#训练集
 rf_test3  <- testing(rf_split3)#测试集
 ```
 
-```{r Tuning the parameters}
+```{r Tuning the parameters2}
 #调参，选择maxnodes和ntree
 # If training the model takes too long try setting up lower value of N
 
@@ -2753,7 +2832,7 @@ rf_train2 <- training(rf_split2)#训练集
 rf_test2  <- testing(rf_split2)#测试集
 ```
 
-```{r Tuning the parameters}
+```{r Tuning the parameters3}
 #调参，选择maxnodes和ntree
 # If training the model takes too long try setting up lower value of N
 
