@@ -1177,31 +1177,27 @@ if(length(elbow_index) > 0) {
 ```
 
 ```{r}
-# 进行探索性因素分析
-efa_q <- fa(r = cor(data_q), nfactors = 6, rotate = "none", fm = "minres")
-# 打印EFA结果
-print(efa_q)
-# 提取因子载荷
-efa_q_loadings <- efa_q$loadings
-# 将因子载荷保存为.csv文件
-write.csv(efa_q_loadings, "efa_q_loadings.csv")
-# 提取特征值
-eigenvalues_q <- efa_q$values
-# 绘制碎石图
-plot(eigenvalues_q, type = "b", pch = 19, lwd = 2,
-     xlab = "Factors", ylab = "Eigenvalues_q", main = "Scree Plot")
+#kmeans聚类
+# 加载必要的包
+library(factoextra)
+library(cluster)
+data_cluster <- all_data_cleaned%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+# **确定最佳聚类数 k**
+fviz_nbclust(data_q, kmeans, method = "wss")  # 肘部法则（Elbow Method）
+fviz_nbclust(data_q, kmeans, method = "silhouette")  # 轮廓系数
 
-# 标注肘点纵坐标
-# 寻找第一个特征值小于1的因子
-elbow_index <- which(eigenvalues_q < 1)[1]
-if(length(elbow_index) > 0) {
-  # 标注肘点
-  points(elbow_index, eigenvalues_q[elbow_index], col = "red", pch = 4, cex = 2)
-  text(elbow_index, eigenvalues_q[elbow_index], labels = round(eigenvalues_q[elbow_index], 2), pos = 3, col = "red")
-} else {
-  # 如果所有特征值都大于或等于1，则没有明显的肘点
-  print("No eigenvalue_q less than 1, no clear elbow point.")
-}
+# **K-Means 聚类**
+set.seed(123)  # 保证结果可重复
+k <- 2  # 可根据上一步的结果调整
+kmeans_result <- kmeans(data_q, centers = k, nstart = 25)
+
+# **可视化 K-Means 结果**
+fviz_cluster(kmeans_result, data = data_q)
+
+# **输出聚类结果**
+print(kmeans_result$cluster)  # 查看每个问卷所属的聚类
+
 ```
 
 
