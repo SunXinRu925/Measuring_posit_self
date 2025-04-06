@@ -1176,27 +1176,180 @@ if(length(elbow_index) > 0) {
 }
 ```
 
+##对问卷总分进行降维处理（12列）
 ```{r}
 #kmeans聚类
 # 加载必要的包
 library(factoextra)
 library(cluster)
-data_cluster <- all_data_cleaned%>%
-  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
-# **确定最佳聚类数 k**
-fviz_nbclust(data_q, kmeans, method = "wss")  # 肘部法则（Elbow Method）
-fviz_nbclust(data_q, kmeans, method = "silhouette")  # 轮廓系数
-
-# **K-Means 聚类**
+# 确定最佳聚类数 k
+fviz_nbclust(data_q, kmeans, method = "wss")  # 肘部法则（Elbow Method）k=3
+fviz_nbclust(data_q, kmeans, method = "silhouette")  # 轮廓系数 k=2
+# K-Means 聚类
 set.seed(123)  # 保证结果可重复
-k <- 2  # 可根据上一步的结果调整
+k <- 3  # 可根据上一步的结果调整
 kmeans_result <- kmeans(data_q, centers = k, nstart = 25)
 
-# **可视化 K-Means 结果**
-fviz_cluster(kmeans_result, data = data_q)
+# 可视化 K-Means 结果
+#fviz_cluster(kmeans_result, data = data_q)
+fviz_cluster(kmeans_result, data = data_q,
+             palette = "jco",  # 使用jco颜色方案
+             pointsize = 1.5,  # 点的大小
+             geom = "point",  # 使用点来表示数据点
+             addgrid = TRUE,  # 添加网格线
+             repel = TRUE,  # 防止标签重叠
+             ggtheme = theme_minimal(),  # 使用简洁的主题
+             main = "K-Means Clustering Result",  # 图表标题
+             xlab = "Principal Component 1",  # X轴标签
+             ylab = "Principal Component 2"  # Y轴标签
+             )
 
-# **输出聚类结果**
-print(kmeans_result$cluster)  # 查看每个问卷所属的聚类
+# 输出聚类结果
+#print(kmeans_result$cluster)  # 查看每个问卷所属的聚类
+
+```
+
+```{r}
+#由于mantel检验无法对负值进行分析，因此在此步骤将计算z分数后的问卷总分进行平方处理
+# 加载必要的包
+library(tidyverse)
+library(linkET)
+library(vegan)
+library(ggnewscale)
+library(RColorBrewer)
+# 对data_q中的每个元素取平方
+data_q_squared <- data_q ^ 2
+
+# 重命名数据框为data_q_adjusted
+data_q_adjusted <- data_q_squared
+dist_q1 <- dist(data_q_adjusted, method = "euclidean")
+
+# 对问卷做聚类（按列）
+dist_col <- dist(t(data_q_adjusted), method = "euclidean")
+hc <- hclust(dist_col, method = "ward.D2")
+clusters <- cutree(hc, k = 3)
+
+# 构建 spec_select
+spec_select <- split(1:ncol(data_q_adjusted), clusters)
+names(spec_select) <- paste0("Cluster_", 1:length(spec_select))
+
+# 构建 Mantel 输入（分别是距离矩阵）
+spec_dist <- dist(t(data_q_adjusted), method = "euclidean")  # 每个问卷是一个“样本”
+env_dist <- dist(t(data_q_adjusted), method = "euclidean")
+
+# 执行 Mantel 检验（每个问卷 vs 每个聚类）
+mantel <- mantel_test(
+  spec = data_q_adjusted,
+  env = data_q_adjusted,
+  spec_select = spec_select
+) %>%
+  mutate(
+    rd = cut(r, breaks = c(-Inf, 0.2, 0.3, Inf),
+             labels = c("< 0.2", "0.2 - 0.3", ">= 0.3")),
+    pd = cut(p, breaks = c(-Inf, 0.005, 0.01, 0.05, Inf),
+             labels = c("< 0.005", "0.005 - 0.01", "0.01 - 0.05", ">= 0.05"))
+  )
+
+# 计算相关矩阵
+cor_matrix <- correlate(data_q_adjusted)
+
+# 绘图
+p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
+  geom_point(shape = 21, size = 8, fill = NA, stroke = 0.35, color = "black") +
+  geom_point(aes(size = abs(r), fill = r),
+             shape = 21, stroke = 0.35, color = "black") +
+  scale_size(range = c(1, 8), guide = "none") +
+  new_scale("size") +
+  geom_couple(data = mantel,
+              aes(color = pd, size = rd),
+              label.size = 3.88,
+              label.family = "",
+              label.fontface = 1,
+              nudge_x = 0.2,
+              curvature = nice_curvature(by = "from")) +
+  scale_fill_gradientn(
+    limits = c(-0.8, 0.8),
+    breaks = seq(-0.8, 0.8, 0.4),
+    colors = rev(brewer.pal(11, "Spectral"))
+  ) +
+  scale_size_manual(values = c(0.2, 0.7, 1.2)) +
+  scale_color_manual(values = color_pal(4, alpha = 0.6)) +
+  guides(
+    size = guide_legend(title = "Mantel's r", order = 2, keyheight = unit(0.5, "cm")),
+    colour = guide_legend(title = "Mantel's p", order = 1, keyheight = unit(0.5, "cm")),
+    fill = guide_colorbar(title = "Pearson's r", keyheight = unit(2.2, "cm"), keywidth = unit(0.5, "cm"), order = 3)
+  ) +
+  theme(legend.box.spacing = unit(0, "pt"))
+# 保存图像
+ggsave(p, filename = "Cluster_Correlation_with_Mantel（1）.pdf", width = 9, height = 6)
+```
+
+
+```{r}
+#对12个问卷原始得分进行降维并绘制相关网络热图
+data_q1 <- all_data_cleaned%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb")))
+dist_q1 <- dist(data_q1, method = "euclidean")
+
+# 对问卷做聚类（按列）
+dist_col <- dist(t(data_q1), method = "euclidean")
+hc <- hclust(dist_col, method = "ward.D2")
+clusters <- cutree(hc, k = 3)
+
+# 构建 spec_select
+spec_select <- split(1:ncol(data_q1), clusters)
+names(spec_select) <- paste0("Cluster_", 1:length(spec_select))
+
+# 构建 Mantel 输入（分别是距离矩阵）
+spec_dist <- dist(t(data_q1), method = "euclidean")  # 每个问卷是一个“样本”
+env_dist <- dist(t(data_q1), method = "euclidean")
+
+# 执行 Mantel 检验（每个问卷 vs 每个聚类）
+mantel <- mantel_test(
+  spec = data_q1,
+  env = data_q1,
+  spec_select = spec_select
+) %>%
+  mutate(
+    rd = cut(r, breaks = c(-Inf, 0.2, 0.3, Inf),
+             labels = c("< 0.2", "0.2 - 0.3", ">= 0.3")),
+    pd = cut(p, breaks = c(-Inf, 0.005, 0.01, 0.05, Inf),
+             labels = c("< 0.005", "0.005 - 0.01", "0.01 - 0.05", ">= 0.05"))
+  )
+
+# 计算相关矩阵
+cor_matrix <- correlate(data_q1)
+
+# 绘图
+p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
+  geom_point(shape = 21, size = 8, fill = NA, stroke = 0.35, color = "black") +
+  geom_point(aes(size = abs(r), fill = r),
+             shape = 21, stroke = 0.35, color = "black") +
+  scale_size(range = c(1, 8), guide = "none") +
+  new_scale("size") +
+  geom_couple(data = mantel,
+              aes(color = pd, size = rd),
+              label.size = 3.88,
+              label.family = "",
+              label.fontface = 1,
+              nudge_x = 0.2,
+              curvature = nice_curvature(by = "from")) +
+  scale_fill_gradientn(
+    limits = c(-0.8, 0.8),
+    breaks = seq(-0.8, 0.8, 0.4),
+    colors = rev(brewer.pal(11, "Spectral"))
+  ) +
+  scale_size_manual(values = c(0.2, 0.7, 1.2)) +
+  scale_color_manual(values = color_pal(4, alpha = 0.6)) +
+  guides(
+    size = guide_legend(title = "Mantel's r", order = 2, keyheight = unit(0.5, "cm")),
+    colour = guide_legend(title = "Mantel's p", order = 1, keyheight = unit(0.5, "cm")),
+    fill = guide_colorbar(title = "Pearson's r", keyheight = unit(2.2, "cm"), keywidth = unit(0.5, "cm"), order = 3)
+  ) +
+  theme(legend.box.spacing = unit(0, "pt"))
+# 保存图像
+ggsave(p, filename = "Cluster_Correlation_with_Mantel.pdf", width = 9, height = 6)
+
 
 ```
 
