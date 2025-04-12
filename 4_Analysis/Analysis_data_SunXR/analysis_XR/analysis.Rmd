@@ -986,6 +986,11 @@ corrplot(
   title = "认知任务相关系数热图"
 )
 ```
+```{r}
+DataExplorer::plot_correlation(na.omit(cor_matrix))
+```
+
+
 
 ##保留一个变量时其他变量的预测程度（线性）
 ```{r}
@@ -1379,7 +1384,10 @@ write.csv(pca_scores2, "data_z_PCA2.csv", row.names = FALSE)
 #EFA分析
 
 # 进行探索性因素分析
-efa_result2 <- fa(r = cor(data_z_PCA2), nfactors = 6, rotate = "none", fm = "minres")
+efa_result2 <- fa(r = cor(data_z_PCA2), nfactors = 6, rotate = "oblimin", fm = "minres")
+#rotate参数设定，需查找文献
+#rotate表示是否进行旋转，rotate 参数用于指定因子分析中使用的旋转方法。默认值是 "none"，表示不进行旋转
+
 # 打印EFA结果
 print(efa_result2)
 # 提取因子载荷
@@ -1481,13 +1489,300 @@ print(cor_matrix)
 
 
 
-#对降维得到因子载荷的再降维
-##问卷与认知任务分别降维
-##集体降维
-
-
 #对现实结果的预测：抑郁/焦虑/拖延/主观幸福感
 ##机器学习方法
+###梯度提升机XGBoost：XGBoost迭代的机器学习技术，通过逐步添加新的模型（通常是弱学习器，如决策树）来修正现有模型的残差，从而提高整体模型的预测能力，是一种优化的分布式梯度提升决策树算法，在梯度提升框架下构建的，专门设计用于提高计算效率和模型性能，尤其在处理大规模数据集时表现优异。
+
+#自我报告问卷
+```{r}
+#SGPS
+library(xgboost)
+# 准备数据
+X <- as.matrix(pca_scores1[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SGPS
+dtrain <- xgb.DMatrix(data = X, label = y)
+#选择最佳参数
+#max_depths <- c(3, 6, 9)
+#etas <- c(0.01, 0.1, 0.3)
+#nrounds <- c(50, 100, 200)
+
+# 训练模型：max_depth 决策树的最大深度；eta 学习率（学习速度）；nrounds 迭代次数；
+xgb_model1 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+#查看哪些特征对预测影响最大
+xgb.importance(feature_names = colnames(X), model = xgb_model1)
+# 预测可视化
+predictions_q_SGPS <- predict(xgb_model1, dtrain)
+# 制作数据框用于绘图
+results_q_SGPS <- data.frame(
+  actual = y,
+  predicted = predictions_q_SGPS
+)
+```
+
+```{r}
+# 绘制散点图
+ggplot(results_q_SGPS, aes(x = actual, y = predicted)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +  # 理想线
+  labs(title = "Predicted vs Actual",
+       x = "Actual Values (SGPS)",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+```{r}
+#绘制小提琴图
+# 计算残差
+results_q_SGPS$residuals <- results_q_SGPS$actual - results_q_SGPS$predicted
+ggplot(results_q_SGPS, aes(x = factor(1), y = residuals)) +
+  geom_violin(fill = "orange", color = "black", alpha = 0.7) + 
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +  #在小提琴图中叠加箱型图
+  labs(title = "Distribution of Residuals",
+       x = "",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())  # 隐藏x轴的文字
+```
+
+```{r}
+#phq
+X <- as.matrix(pca_scores1[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$phq
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model2 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model2)
+# 预测可视化
+predictions_q_phq <- predict(xgb_model2, dtrain)
+# 制作数据框用于绘图
+results_q_phq <- data.frame(
+  actual = y,
+  predicted = predictions_q_phq
+)
+```
+
+```{r}
+results_q_phq$residuals <- results_q_phq$actual - results_q_phq$predicted
+ggplot(results_q_phq, aes(x = factor(1), y = residuals)) +
+  geom_violin(fill = "orange", color = "black", alpha = 0.7) + 
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +  
+  labs(title = "Distribution of Residuals",
+       x = "",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
+```
+
+```{r}
+ggplot(results_q_phq, aes(x = actual, y = predicted)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +  # 理想线
+  labs(title = "Predicted vs Actual",
+       x = "Actual Values (SGPS)",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+```{r}
+#gad
+X <- as.matrix(pca_scores1[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$gad
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model3 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model3)
+# 预测可视化
+predictions_q_gad <- predict(xgb_model3, dtrain)
+# 制作数据框用于绘图
+results_q_gad <- data.frame(
+  actual = y,
+  predicted = predictions_q_gad
+)
+```
+
+```{r}
+results_q_gad$residuals <- results_q_gad$actual - results_q_gad$predicted
+ggplot(results_q_gad, aes(x = factor(1), y = residuals)) +
+  geom_violin(fill = "orange", color = "black", alpha = 0.7) + 
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +  
+  labs(title = "Distribution of Residuals",
+       x = "",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
+```
+
+```{r}
+#SWB
+X <- as.matrix(pca_scores1[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SWB
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model4 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model4)
+# 预测可视化
+predictions_q_SWB <- predict(xgb_model4, dtrain)
+# 制作数据框用于绘图
+results_q_SWB <- data.frame(
+  actual = y,
+  predicted = predictions_q_SWB
+)
+```
+```{r}
+results_q_SWB$residuals <- results_q_SWB$actual - results_q_SWB$predicted
+ggplot(results_q_SWB, aes(x = factor(1), y = residuals)) +
+  geom_violin(fill = "orange", color = "black", alpha = 0.7) + 
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +  
+  labs(title = "Distribution of Residuals",
+       x = "",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
+```
+
+#合并四个小提琴图
+```{r}
+# 合并数据
+results_q_SGPS$type <- "SGPS"
+results_q_phq$type <- "PHQ"
+results_q_gad$type <- "GAD"
+results_q_SWB$type <- "SWB"
+all_results_q <- bind_rows(results_q_SGPS, results_q_phq, results_q_gad, results_q_SWB)
+
+# 绘制小提琴图
+ggplot(all_results_q, aes(x = type, y = residuals)) +
+  geom_violin(fill = "lightgoldenrod1", color = "black", alpha = 0.7) +
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +
+  labs(title = "Distribution of Questionnaire Residuals for Different Metrics",
+       x = "Metric",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal()
+```
+```{r}
+# 绘制散点图
+ggplot(all_results_q, aes(x = actual, y = predicted, color = type)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +  # 理想线
+  facet_wrap(~type) +  # 按类型分面
+  labs(title = "Predicted vs Actual (Questionnaire)",
+       x = "Actual Values",
+       y = "Predicted Values") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+#认知任务
+```{r}
+#SGPS
+X <- as.matrix(pca_scores2[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SGPS
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model5 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model5)
+# 预测可视化
+predictions_task_SGPS <- predict(xgb_model5, dtrain)
+results_task_SGPS <- data.frame(
+  actual = y,
+  predicted = predictions_task_SGPS
+)
+results_task_SGPS$residuals <- results_task_SGPS$actual - results_task_SGPS$predicted
+```
+
+```{r}
+#phq
+X <- as.matrix(pca_scores2[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$phq
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model6 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model6)
+# 预测可视化
+predictions_task_phq <- predict(xgb_model6, dtrain)
+results_task_phq <- data.frame(
+  actual = y,
+  predicted = predictions_task_phq
+)
+results_task_phq$residuals <- results_task_phq$actual - results_task_phq$predicted
+```
+
+
+```{r}
+#gad
+X <- as.matrix(pca_scores2[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$gad
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model7 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model7)
+# 预测可视化
+predictions_task_gad <- predict(xgb_model7, dtrain)
+results_task_gad <- data.frame(
+  actual = y,
+  predicted = predictions_task_gad
+)
+results_task_gad$residuals <- results_task_gad$actual - results_task_gad$predicted
+```
+
+```{r}
+#SWB
+X <- as.matrix(pca_scores2[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SWB
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model8 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model8)
+# 预测可视化
+predictions_task_SWB <- predict(xgb_model8, dtrain)
+results_task_SWB <- data.frame(
+  actual = y,
+  predicted = predictions_task_SWB
+)
+results_task_SWB$residuals <- results_task_SWB$actual - results_task_SWB$predicted
+```
+#合并绘图
+```{r}
+# 合并数据
+results_task_SGPS$type <- "SGPS"
+results_task_phq$type <- "PHQ"
+results_task_gad$type <- "GAD"
+results_task_SWB$type <- "SWB"
+all_results_task <- bind_rows(results_task_SGPS, results_task_phq, results_task_gad, results_task_SWB)
+
+# 绘制小提琴图
+ggplot(all_results_task, aes(x = type, y = residuals)) +
+  geom_violin(fill = "orange", color = "black", alpha = 0.7) +
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +
+  labs(title = "Distribution of Task Residuals for Different Metrics",
+       x = "Metric",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal()
+```
+
+```{r}
+# 绘制散点图
+ggplot(all_results_task, aes(x = actual, y = predicted, color = type)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +  # 理想线
+  facet_wrap(~type) +  # 按类型分面
+  labs(title = "Predicted vs Actual (TASK)",
+       x = "Actual Values",
+       y = "Predicted Values") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```{r}
 col<- all_data_cleaned %>%select(ability_ALT_rt,moral_ALT_rt,ability_ALT_d,moral_ALT_d,ability_IAT,moral_IAT,ability_SRET_EW,moral_SRET_EW,ability_SRET_rt,moral_SRET_rt,ability_SRET_RJ1_d,moral_SRET_RJ1_d,ability_SRET_RJ2_d,moral_SRET_RJ2_d)
