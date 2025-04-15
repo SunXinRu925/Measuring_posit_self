@@ -1,0 +1,593 @@
+#统计分析
+##自我报告：11个问卷和5个领域量表得分(data_al[, 1:16])
+##认知任务：3个行为实验共14个指标(data_al[, 17:30])
+
+```{r}
+#计算各问卷总分和认知任务相关的z分数
+data_al <- all_data_cleaned%>%
+  select(matches("_al$"), -starts_with(c("phq", "gad", "SGPS", "swb","domain")),c("Ability","Attraction","Wealth","Social","Moral","obj_ses1",'fri_ses2',"ability_ALT_rt","moral_ALT_rt","ability_ALT_d","moral_ALT_d","ability_IAT","moral_IAT","ability_SRET_EW","moral_SRET_EW","ability_SRET_rt","moral_SRET_rt","ability_SRET_RJ1_d","moral_SRET_RJ1_d","ability_SRET_RJ2_d","moral_SRET_RJ2_d"),-"obj_ses1",-"fri_ses2")
+data_al <- scale(data_al)
+write.csv(data_al,"data_al_z.csv")
+```
+
+#问卷报告与认知任务相关性分析
+```{r}
+#自我报告+认知任务
+cor_matrix <- cor(data_al, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "相关系数热图"
+)
+```
+
+#自我报告
+```{r}
+cor_matrix <- cor(data_al[,1:16], method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "自我报告相关系数热图"
+)
+```
+
+#认知任务
+```{r}
+cor_matrix <- cor(data_al[, 17:30], method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "认知任务相关系数热图"
+)
+```
+
+#保留一个变量时其他变量的预测程度（10折交叉验证）
+```{r}
+#install.packages("caret")
+library(caret)
+# 获取所有变量名
+variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
+# 初始化一个列表来保存模型结果
+model_results <- list()
+# 设置交叉验证的参数
+control <- trainControl(method = "cv", number = 10) # 10折交叉验证
+# 循环遍历每个变量
+for(target_var in variables) {
+# 排除当前目标变量，获取预测变量
+  predictors <- setdiff(variables, target_var)
+# 创建公式
+  formula <- as.formula(paste(target_var, "~", paste(predictors, collapse = "+")))
+# 训练模型，这里使用线性回归作为示例，你可以根据需要更换为其他模型
+  model <- train(formula, data = data_z_cleaned, method = "lm", trControl = control)
+# 保存模型结果
+  model_results[[target_var]] <- model
+}
+# 输出每个模型的性能
+for(target_var in names(model_results)) 
+  cat("Model performance for", target_var, ":\n")
+  print(model_results[[target_var]])
+# 初始化一个数据框来保存所有模型的性能指标
+performance_df <- data.frame(Target_Variable = character(),
+                             RMSE = numeric(),
+                             Rsquared = numeric(),
+                             MAE = numeric(),
+                             stringsAsFactors = FALSE)
+# 提取每个模型的性能指标
+for(target_var in names(model_results)) {
+  # 提取性能指标
+  results <- model_results[[target_var]]$results
+  rmse <- ifelse(exists("RMSE", results), results$RMSE, NA)
+  rsquared <- ifelse(exists("Rsquared", results), results$Rsquared, NA)
+  mae <- ifelse(exists("MAE", results), results$MAE, NA)
+# 将性能指标添加到数据框
+  performance_df <- rbind(performance_df, data.frame(Target_Variable = target_var,
+                                                     RMSE = rmse,
+                                                     Rsquared = rsquared,
+                                                     MAE = mae,
+                                                     stringsAsFactors = FALSE))
+}
+
+# 将数据框写入 CSV 文件
+write.csv(performance_df, "model_performance.csv", row.names = FALSE)
+# 加载ggplot2包
+library(ggplot2)
+
+# 读取之前保存的性能指标数据框
+performance_df <- read.csv("model_performance.csv")
+
+# 创建RMSE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, RMSE), y = RMSE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() + # 翻转坐标轴，使得变量名更容易阅读
+  labs(x = "Target Variable", y = "RMSE", title = "Root Mean Squared Error for Each Model") +
+  theme_minimal()
+
+# 创建R-squared的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, Rsquared), y = Rsquared)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "R-squared", title = "R-squared for Each Model") +
+  theme_minimal()
+
+# 创建MAE的条形图
+ggplot(performance_df, aes(x = reorder(Target_Variable, MAE), y = MAE)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(x = "Target Variable", y = "MAE", title = "Mean Absolute Error for Each Model") +
+  theme_minimal()
+```
+
+##对自我报告与认知任务分别降维(PCA)
+#自我报告
+```{r}
+# 如未安装需要先安装所需的包
+#install.packages("FactoMineR")
+#install.packages("factoextra") # 用于结果的可视化
+
+#加载包
+library(FactoMineR)
+library(factoextra)
+# 读取CSV文件
+pca_q <- data_al[, 1:16]
+#进行PCA降维处理
+pca_q_result <- PCA(pca_q, graph = FALSE)
+# 查看PCA结果
+print(pca_q_result)
+# 查看所有主成分
+print(pca_q_result$eig)
+# 生成碎石图
+fviz_eig(pca_q_result, addlabels = TRUE, ylim = c(0, max(pca_q_result$eig) + 0.1 * max(pca_q_result$eig)))
+#使用factoextra包进行结果的可视化
+fviz_pca_ind(pca_q_result, col.ind = "cos2", 
+              gradient.cols = c("blue", "red"), 
+              repel = TRUE # Avoid text overlapping
+)
+pca_q_scores <- as.data.frame(pca_q_result$ind$coord)
+write.csv(pca_q_scores, "PCA1.csv", row.names = FALSE)
+```
+#聚类+网络热图
+```{r}
+#由于mantel检验无法对负值进行分析，因此在此步骤将计算z分数后的问卷总分进行平方处理
+# 加载必要的包
+library(tidyverse)
+library(linkET)
+library(vegan)
+library(ggnewscale)
+library(RColorBrewer)
+# 对data_al中的每个元素取平方
+data_q_squared <- data_al[,1:16] ^ 2
+
+# 重命名数据框为data_q_adjusted
+data_q_adjusted <- data_q_squared
+dist_q1 <- dist(data_q_adjusted, method = "euclidean")
+
+# 对问卷做聚类（按列）
+dist_col <- dist(t(data_q_adjusted), method = "euclidean")
+hc <- hclust(dist_col, method = "ward.D2")
+clusters <- cutree(hc, k = 3)
+
+# 构建 spec_select
+spec_select <- split(1:ncol(data_q_adjusted), clusters)
+names(spec_select) <- paste0("Cluster_", 1:length(spec_select))
+
+# 构建 Mantel 输入（分别是距离矩阵）
+spec_dist <- dist(t(data_q_adjusted), method = "euclidean")  # 每个问卷是一个“样本”
+env_dist <- dist(t(data_q_adjusted), method = "euclidean")
+
+# 执行 Mantel 检验（每个问卷 vs 每个聚类）
+mantel <- mantel_test(
+  spec = data_q_adjusted,
+  env = data_q_adjusted,
+  spec_select = spec_select
+) %>%
+  mutate(
+    rd = cut(r, breaks = c(-Inf, 0.2, 0.3, Inf),
+             labels = c("< 0.2", "0.2 - 0.3", ">= 0.3")),
+    pd = cut(p, breaks = c(-Inf, 0.005, 0.01, 0.05, Inf),
+             labels = c("< 0.005", "0.005 - 0.01", "0.01 - 0.05", ">= 0.05"))
+  )
+
+# 计算相关矩阵
+cor_matrix <- correlate(data_q_adjusted)
+
+# 绘图
+p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
+  geom_point(shape = 21, size = 8, fill = NA, stroke = 0.35, color = "black") +
+  geom_point(aes(size = abs(r), fill = r),
+             shape = 21, stroke = 0.35, color = "black") +
+  scale_size(range = c(1, 8), guide = "none") +
+  new_scale("size") +
+  geom_couple(data = mantel,
+              aes(color = pd, size = rd),
+              label.size = 3.88,
+              label.family = "",
+              label.fontface = 1,
+              nudge_x = 0.2,
+              curvature = nice_curvature(by = "from")) +
+  scale_fill_gradientn(
+    limits = c(-0.8, 0.8),
+    breaks = seq(-0.8, 0.8, 0.4),
+    colors = rev(brewer.pal(11, "Spectral"))
+  ) +
+  scale_size_manual(values = c(0.2, 0.7, 1.2)) +
+  scale_color_manual(values = color_pal(4, alpha = 0.6)) +
+  guides(
+    size = guide_legend(title = "Mantel's r", order = 2, keyheight = unit(0.5, "cm")),
+    colour = guide_legend(title = "Mantel's p", order = 1, keyheight = unit(0.5, "cm")),
+    fill = guide_colorbar(title = "Pearson's r", keyheight = unit(2.2, "cm"), keywidth = unit(0.5, "cm"), order = 3)
+  ) +
+  theme(legend.box.spacing = unit(0, "pt"))
+# 保存图像
+ggsave(p, filename = "Cluster_Correlation_with_Mantel（1）.pdf", width = 9, height = 6)
+```
+
+#认知任务
+```{r}
+# 读取CSV文件
+pca_task <- data_al[,17:30]
+# 进行PCA降维处理
+pca_task_result <- PCA(pca_task, graph = FALSE)
+# 查看PCA结果
+print(pca_task_result)
+# 查看所有主成分
+print(pca_task_result$eig)
+# 生成碎石图
+fviz_eig(pca_task_result, addlabels = TRUE, ylim = c(0, max(pca_task_result$eig) + 0.1 * max(pca_task_result$eig)))
+#使用factoextra包进行结果的可视化
+fviz_pca_ind(pca_task_result, col.ind = "cos2", 
+              gradient.cols = c("blue", "red"), 
+              repel = TRUE # Avoid text overlapping
+)
+pca_task_scores <- as.data.frame(pca_task_result$ind$coord)
+write.csv(pca_task_scores, "PCA2.csv", row.names = FALSE)
+```
+
+#聚类+网络热图
+```{r}
+#由于mantel检验无法对负值进行分析，因此在此步骤将计算z分数后的问卷总分进行平方处理
+# 对data_al中的每个元素取平方
+data_q_squared <- data_al[,17:30] ^ 2
+
+# 重命名数据框为data_q_adjusted
+data_q_adjusted <- data_q_squared
+dist_q1 <- dist(data_q_adjusted, method = "euclidean")
+
+# 对问卷做聚类（按列）
+dist_col <- dist(t(data_q_adjusted), method = "euclidean")
+hc <- hclust(dist_col, method = "ward.D2")
+clusters <- cutree(hc, k = 3)
+
+# 构建 spec_select
+spec_select <- split(1:ncol(data_q_adjusted), clusters)
+names(spec_select) <- paste0("Cluster_", 1:length(spec_select))
+
+# 构建 Mantel 输入（分别是距离矩阵）
+spec_dist <- dist(t(data_q_adjusted), method = "euclidean")  # 每个问卷是一个“样本”
+env_dist <- dist(t(data_q_adjusted), method = "euclidean")
+
+# 执行 Mantel 检验（每个问卷 vs 每个聚类）
+mantel <- mantel_test(
+  spec = data_q_adjusted,
+  env = data_q_adjusted,
+  spec_select = spec_select
+) %>%
+  mutate(
+    rd = cut(r, breaks = c(-Inf, 0.2, 0.3, Inf),
+             labels = c("< 0.2", "0.2 - 0.3", ">= 0.3")),
+    pd = cut(p, breaks = c(-Inf, 0.005, 0.01, 0.05, Inf),
+             labels = c("< 0.005", "0.005 - 0.01", "0.01 - 0.05", ">= 0.05"))
+  )
+
+# 计算相关矩阵
+cor_matrix <- correlate(data_q_adjusted)
+
+# 绘图
+p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
+  geom_point(shape = 21, size = 8, fill = NA, stroke = 0.35, color = "black") +
+  geom_point(aes(size = abs(r), fill = r),
+             shape = 21, stroke = 0.35, color = "black") +
+  scale_size(range = c(1, 8), guide = "none") +
+  new_scale("size") +
+  geom_couple(data = mantel,
+              aes(color = pd, size = rd),
+              label.size = 3.88,
+              label.family = "",
+              label.fontface = 1,
+              nudge_x = 0.2,
+              curvature = nice_curvature(by = "from")) +
+  scale_fill_gradientn(
+    limits = c(-0.8, 0.8),
+    breaks = seq(-0.8, 0.8, 0.4),
+    colors = rev(brewer.pal(11, "Spectral"))
+  ) +
+  scale_size_manual(values = c(0.2, 0.7, 1.2)) +
+  scale_color_manual(values = color_pal(4, alpha = 0.6)) +
+  guides(
+    size = guide_legend(title = "Mantel's r", order = 2, keyheight = unit(0.5, "cm")),
+    colour = guide_legend(title = "Mantel's p", order = 1, keyheight = unit(0.5, "cm")),
+    fill = guide_colorbar(title = "Pearson's r", keyheight = unit(2.2, "cm"), keywidth = unit(0.5, "cm"), order = 3)
+  ) +
+  theme(legend.box.spacing = unit(0, "pt"))
+# 保存图像
+ggsave(p, filename = "Cluster_Correlation_with_Mantel（2）.pdf", width = 9, height = 6)
+```
+
+#对自我报告与认知任务的网络分析
+```{r}
+library(EGAnet)
+# Step 1: 数据准备
+network_data1 <- data_al[, 1:16]  # 第一组数据
+network_data2 <- data_al[, 17:30]  # 第二组数据
+# Step 2: 网络分析
+ega_model1 <- EGA(network_data1, model = "glasso")  # 第一组数据网络分析
+ega_model2 <- EGA(network_data2, model = "glasso")  # 第二组数据网络分析
+# 提取邻接矩阵
+adj_matrix1 <- ega_model1$network  # 第一组网络邻接矩阵
+adj_matrix2 <- ega_model2$network  # 第二组网络邻接矩阵
+# Step 3: 合并网络
+combined_matrix <- matrix(0, nrow = ncol(network_data1) + ncol(network_data2), 
+                          ncol = ncol(network_data1) + ncol(network_data2))
+rownames(combined_matrix) <- c(colnames(network_data1), colnames(network_data2))
+colnames(combined_matrix) <- c(colnames(network_data1), colnames(network_data2))
+# 填充邻接矩阵
+combined_matrix[1:ncol(network_data1), 1:ncol(network_data1)] <- adj_matrix1
+combined_matrix[(ncol(network_data1) + 1):nrow(combined_matrix), 
+                (ncol(network_data1) + 1):ncol(combined_matrix)] <- adj_matrix2
+# Step 4: 可视化
+groups <- list(
+  'Questionnaire' = 1:ncol(network_data1),
+  'Task' = (ncol(network_data1) + 1):ncol(combined_matrix)
+)
+
+pdf('Network_UpDown.pdf')
+qgraph(
+  combined_matrix,
+  groups = groups,
+  layout = layout,        # 自定义布局：上下分布
+  labels = FALSE,         # 不显示节点上的数字
+  legend = TRUE,          # 显示图例
+  label.cex = 0.8,        # 标签大小
+  vsize = 5,              # 节点大小
+  curveAll = TRUE,        # 显示所有边的曲率
+  curve = 0.8,            # 边曲率
+  edge.color = "black",   # 边的颜色
+  color = c("#add3f4", "#fccb8e"),  # 第一组蓝色，第二组橙色
+  theme = "colorblind",   # 色盲友好的主题
+  title = "Network: Questionnaire and Task"
+)
+dev.off()
+```
+
+#对现实结果的预测：抑郁/焦虑/拖延/主观幸福感
+##机器学习方法
+###梯度提升机XGBoost：XGBoost迭代的机器学习技术，通过逐步添加新的模型（通常是弱学习器，如决策树）来修正现有模型的残差，从而提高整体模型的预测能力，是一种优化的分布式梯度提升决策树算法，在梯度提升框架下构建的，专门设计用于提高计算效率和模型性能，尤其在处理大规模数据集时表现优异。
+
+#自我报告问卷
+```{r}
+#SGPS
+library(xgboost)
+# 准备数据
+X <- as.matrix(pca_q_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SGPS
+dtrain <- xgb.DMatrix(data = X, label = y)
+#选择最佳参数
+#max_depths <- c(3, 6, 9)
+#etas <- c(0.01, 0.1, 0.3)
+#nrounds <- c(50, 100, 200)
+
+# 训练模型：max_depth 决策树的最大深度；eta 学习率（学习速度）；nrounds 迭代次数；
+xgb_model1 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+#查看哪些特征对预测影响最大
+xgb.importance(feature_names = colnames(X), model = xgb_model1)
+# 预测可视化
+predictions_q_SGPS <- predict(xgb_model1, dtrain)
+# 制作数据框用于绘图
+results_q_SGPS <- data.frame(
+  actual = y,
+  predicted = predictions_q_SGPS
+)
+```
+
+```{r}
+#phq
+X <- as.matrix(pca_q_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$phq
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model2 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model2)
+# 预测可视化
+predictions_q_phq <- predict(xgb_model2, dtrain)
+# 制作数据框用于绘图
+results_q_phq <- data.frame(
+  actual = y,
+  predicted = predictions_q_phq
+)
+```
+
+```{r}
+#gad
+X <- as.matrix(pca_q_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$gad
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model3 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model3)
+# 预测可视化
+predictions_q_gad <- predict(xgb_model3, dtrain)
+# 制作数据框用于绘图
+results_q_gad <- data.frame(
+  actual = y,
+  predicted = predictions_q_gad
+)
+```
+
+```{r}
+#SWB
+X <- as.matrix(pca_q_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SWB
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model4 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model4)
+# 预测可视化
+predictions_q_SWB <- predict(xgb_model4, dtrain)
+# 制作数据框用于绘图
+results_q_SWB <- data.frame(
+  actual = y,
+  predicted = predictions_q_SWB
+)
+```
+
+#合并四个小提琴图
+```{r}
+# 合并数据
+results_q_SGPS$type <- "SGPS"
+results_q_phq$type <- "PHQ"
+results_q_gad$type <- "GAD"
+results_q_SWB$type <- "SWB"
+all_results_q <- bind_rows(results_q_SGPS, results_q_phq, results_q_gad, results_q_SWB)
+
+# 绘制小提琴图
+ggplot(all_results_q, aes(x = type, y = residuals)) +
+  geom_violin(fill = "lightgoldenrod1", color = "black", alpha = 0.7) +
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +
+  labs(title = "Distribution of Questionnaire Residuals for Different Metrics",
+       x = "Metric",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal()
+```
+
+```{r}
+# 绘制散点图
+ggplot(all_results_q, aes(x = actual, y = predicted, color = type)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +  # 理想线
+  facet_wrap(~type) +  # 按类型分面
+  labs(title = "Predicted vs Actual (Questionnaire)",
+       x = "Actual Values",
+       y = "Predicted Values") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+#认知任务
+```{r}
+#SGPS
+X <- as.matrix(pca_task_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SGPS
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model5 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model5)
+# 预测可视化
+predictions_task_SGPS <- predict(xgb_model5, dtrain)
+results_task_SGPS <- data.frame(
+  actual = y,
+  predicted = predictions_task_SGPS
+)
+results_task_SGPS$residuals <- results_task_SGPS$actual - results_task_SGPS$predicted
+```
+
+```{r}
+#phq
+X <- as.matrix(pca_task_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$phq
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model6 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model6)
+# 预测可视化
+predictions_task_phq <- predict(xgb_model6, dtrain)
+results_task_phq <- data.frame(
+  actual = y,
+  predicted = predictions_task_phq
+)
+results_task_phq$residuals <- results_task_phq$actual - results_task_phq$predicted
+```
+
+
+```{r}
+#gad
+X <- as.matrix(pca_task_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$gad
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model7 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model7)
+# 预测可视化
+predictions_task_gad <- predict(xgb_model7, dtrain)
+results_task_gad <- data.frame(
+  actual = y,
+  predicted = predictions_task_gad
+)
+results_task_gad$residuals <- results_task_gad$actual - results_task_gad$predicted
+```
+
+```{r}
+#SWB
+X <- as.matrix(pca_task_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
+y <- health_var$SWB
+dtrain <- xgb.DMatrix(data = X, label = y)
+xgb_model8 <- xgboost(data = dtrain, max_depth = 6, eta = 0.1, nrounds = 100, objective = "reg:squarederror")
+xgb.importance(feature_names = colnames(X), model = xgb_model8)
+# 预测可视化
+predictions_task_SWB <- predict(xgb_model8, dtrain)
+results_task_SWB <- data.frame(
+  actual = y,
+  predicted = predictions_task_SWB
+)
+results_task_SWB$residuals <- results_task_SWB$actual - results_task_SWB$predicted
+```
+#合并绘图
+```{r}
+# 合并数据
+results_task_SGPS$type <- "SGPS"
+results_task_phq$type <- "PHQ"
+results_task_gad$type <- "GAD"
+results_task_SWB$type <- "SWB"
+all_results_task <- bind_rows(results_task_SGPS, results_task_phq, results_task_gad, results_task_SWB)
+
+# 绘制小提琴图
+ggplot(all_results_task, aes(x = type, y = residuals)) +
+  geom_violin(fill = "orange", color = "black", alpha = 0.7) +
+  geom_boxplot(width = 0.1, outlier.color = "red", outlier.size = 1, alpha = 0.5) +
+  labs(title = "Distribution of Task Residuals for Different Metrics",
+       x = "Metric",
+       y = "Residuals (Actual - Predicted)") +
+  theme_minimal()
+```
+
+```{r}
+# 绘制散点图
+ggplot(all_results_task, aes(x = actual, y = predicted, color = type)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +  # 理想线
+  facet_wrap(~type) +  # 按类型分面
+  labs(title = "Predicted vs Actual (TASK)",
+       x = "Actual Values",
+       y = "Predicted Values") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+
+
+
+
+
+
+

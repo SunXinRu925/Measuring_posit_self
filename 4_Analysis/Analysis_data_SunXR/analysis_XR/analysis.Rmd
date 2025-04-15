@@ -1223,7 +1223,7 @@ library(vegan)
 library(ggnewscale)
 library(RColorBrewer)
 # 对data_q中的每个元素取平方
-data_q_squared <- data_q ^ 2
+data_q_squared <- data_al[,1:16] ^ 2
 
 # 重命名数据框为data_q_adjusted
 data_q_adjusted <- data_q_squared
@@ -1362,7 +1362,7 @@ ggsave(p, filename = "Cluster_Correlation_with_Mantel.pdf", width = 9, height = 
 ###对认知任务进行降维（14列）
 ```{r}
 # 读取CSV文件
-data_z_PCA2 <- read_csv("data_z.csv")[, 139:152]
+data_z_PCA2 <- data_al[,17:30]
 # 进行PCA降维处理
 pca_result2 <- PCA(data_z_PCA2, graph = FALSE)
 # 查看PCA结果
@@ -1671,6 +1671,7 @@ results_q_SWB <- data.frame(
   predicted = predictions_q_SWB
 )
 ```
+
 ```{r}
 results_q_SWB$residuals <- results_q_SWB$actual - results_q_SWB$predicted
 ggplot(results_q_SWB, aes(x = factor(1), y = residuals)) +
