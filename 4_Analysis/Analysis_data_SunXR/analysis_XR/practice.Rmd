@@ -1,0 +1,46 @@
+```{r}
+library(lavaan)
+library(ggplot2)
+library(reshape2)
+library(psych)
+
+# 假设 dataal 是您的数据框，其中前16列是问卷数据，后14列是认知任务指标
+# 进行探索性因子分析，确定特定因子的结构
+# 这里我们对整个数据框进行EFA
+efa_result <- fa(r = cor(data_al), nfactors = 2, fm = "minres", rotate = "oblimin")
+
+# 打印EFA结果，查看因子载荷
+print(efa_result)
+
+# 根据EFA结果，定义 bifactor 模型的模型公式
+# 假设EFA结果显示了2个特定因子，我们需要根据实际结果调整
+# 这里只是一个示例公式，您需要根据实际EFA结果调整
+model_formula <- '
+  I =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al + Ability + Attraction + Wealth + Social + Moral + ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d + ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW + ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  F1 =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al + Ability + Attraction + Wealth + Social + Moral # 特定因子1，对应问卷数据
+  F2 =~ ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d + ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW + ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d # 特定因子2，对应认知任务指标
+'
+
+# 拟合 bifactor 模型
+fit <- sem(model_formula, data = data_al)
+
+# 提取因子载荷
+loadings <- fitted(fit)$lambda
+
+# 转换为长格式
+loadings_long <- melt(loadings)
+
+# 绘制图表
+ggplot(loadings_long, aes(x = variable, y = value, fill = factor(variable))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ L1, scales = "free_x") + # 根据因子分面
+  scale_fill_manual(values = c(rep("blue", 16), rep("red", 14))) + # 设置颜色
+  theme_minimal() +
+  labs(fill = "Factor", x = "Measures", y = "Loadings")
+
+# 请注意，您需要根据实际EFA结果调整model_formula中的公式
+# 以及根据实际因子数量和名称调整facet_wrap和fill的参数
+
+
+```
+
