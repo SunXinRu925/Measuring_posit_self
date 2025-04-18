@@ -2,6 +2,17 @@
 ##自我报告：11个问卷和5个领域量表得分(data_al[, 1:16])
 ##认知任务：3个行为实验共14个指标(data_al[, 17:30])
 
+#加载分析所用的包
+```{r}
+#if (!require("pacman")) install.packages("pacman")
+pacman::p_load(
+  psych, lavaan, ggplot2, reshape2, caret,
+  FactoMineR, factoextra, tidyverse, linkET,
+  vegan, ggnewscale, RColorBrewer, EGAnet, xgboost
+)
+```
+
+#数据标准化处理
 ```{r}
 #计算各问卷总分和认知任务相关的z分数
 data_al <- all_data_cleaned%>%
@@ -58,8 +69,6 @@ corrplot(
 
 #保留一个变量时其他变量的预测程度（10折交叉验证）
 ```{r}
-#install.packages("caret")
-library(caret)
 # 获取所有变量名
 variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
 # 初始化一个列表来保存模型结果
@@ -104,9 +113,6 @@ for(target_var in names(model_results)) {
 
 # 将数据框写入 CSV 文件
 write.csv(performance_df, "model_performance.csv", row.names = FALSE)
-# 加载ggplot2包
-library(ggplot2)
-
 # 读取之前保存的性能指标数据框
 performance_df <- read.csv("model_performance.csv")
 
@@ -139,9 +145,6 @@ ggplot(performance_df, aes(x = reorder(Target_Variable, MAE), y = MAE)) +
 #install.packages("FactoMineR")
 #install.packages("factoextra") # 用于结果的可视化
 
-#加载包
-library(FactoMineR)
-library(factoextra)
 # 读取CSV文件
 pca_q <- data_al[, 1:16]
 #进行PCA降维处理
@@ -163,12 +166,6 @@ write.csv(pca_q_scores, "PCA1.csv", row.names = FALSE)
 #聚类+网络热图
 ```{r}
 #由于mantel检验无法对负值进行分析，因此在此步骤将计算z分数后的问卷总分进行平方处理
-# 加载必要的包
-library(tidyverse)
-library(linkET)
-library(vegan)
-library(ggnewscale)
-library(RColorBrewer)
 # 对data_al中的每个元素取平方
 data_q_squared <- data_al[,1:16] ^ 2
 
@@ -329,7 +326,6 @@ ggsave(p, filename = "Cluster_Correlation_with_Mantel（2）.pdf", width = 9, he
 
 #对自我报告与认知任务的网络分析
 ```{r}
-library(EGAnet)
 # Step 1: 数据准备
 network_data1 <- data_al[, 1:16]  # 第一组数据
 network_data2 <- data_al[, 17:30]  # 第二组数据
@@ -380,7 +376,6 @@ dev.off()
 #自我报告问卷
 ```{r}
 #SGPS
-library(xgboost)
 # 准备数据
 X <- as.matrix(pca_q_scores[, c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5")])
 y <- health_var$SGPS
@@ -580,7 +575,95 @@ ggplot(all_results_task, aes(x = actual, y = predicted, color = type)) +
   theme(legend.position = "none")
 ```
 
+#Bifactor模型
+```{r}
+# 自动确定模型因子数量
+fa_parallel <- fa.parallel(data_al, fa = "fa", fm = "minres", n.iter = 100)
+nfactors <- fa_parallel$nfact  # 推荐因子数量
+# 进行 EFA
+efa_result <- fa(r = cor(data_al), nfactors = nfactors, fm = "minres", rotate = "oblimin")
+# 打印因子分析结果，查看因子载荷
+print(efa_result)
+# 提取因子载荷矩阵
+loadings <- as.data.frame(efa_result$loadings)
+# 根据因子载荷动态生成 bifactor 模型公式
+threshold <- 0.3  # 因子载荷的阈值
+model_formula <- ""
 
+for (factor_idx in 1:nfactors) {
+  # 检查因子索引是否在范围内
+  if (factor_idx <= ncol(loadings$x)) {
+    # 提取当前因子相关的条目
+    factor_items <- rownames(loadings$x)[abs(loadings$x[, factor_idx]) > threshold]
+    factor_name <- paste0("F", factor_idx)
+    
+    # 为模型公式添加条目
+    if (length(factor_items) > 0) {
+      model_formula <- paste0(
+        model_formula,
+        factor_name, " =~ ", paste(factor_items, collapse = " + "), "\n"
+      )
+    }
+  }
+}
+
+# 添加通用因子
+general_factor_items <- rownames(loadings$x)
+model_formula <- paste0(
+  "I =~ ", paste(general_factor_items, collapse = " + "), "\n", 
+  model_formula
+)
+# 打印生成的模型公式
+cat(model_formula)
+
+# 模型
+model_formula <- '
+  # 总体因子
+  I =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al +
+        Ability + Attraction + Wealth + Social + Moral +
+        ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d +
+        ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW +
+        ability_SRET_rt + moral_SRET_rt +
+        ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  
+  # 特定因子
+  F1 =~ selfclarity_al + ses_al + coreself_al + hsns_al + LOT_al + sde_al + IM_al + MorIden_al + IPC_al
+  F2 =~ NPI_al + moralSeImag_al + Ability + Attraction + Wealth + Social + Moral
+  F3 =~ ability_SRET_EW + moral_SRET_EW
+  F4 =~ moral_ALT_rt + moral_ALT_d
+  F5 =~ ability_ALT_rt + ability_ALT_d
+  F6 =~ ability_SRET_rt + moral_SRET_rt
+  F7 =~ ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  F8 =~ ability_IAT + moral_IAT
+
+  # 因子之间的协方差
+  F1 ~~ F2 + F3
+  F4 ~~ F5 + F6
+  F7 ~~ F8
+'
+# 拟合模型
+fit <- sem(model_formula, data = data_al, estimator = "MLR")
+# 输出模型拟合结果和标准化估计
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+
+# 检查潜在问题
+#inspect(fit, "free")
+#fitMeasures(fit)
+
+# 提取因子载荷
+loadings_sem <- standardizedSolution(fit) %>%
+  as.data.frame() %>%                 # 确保为数据框
+  filter(op == "=~") %>%              # 筛选因子载荷行
+  select(lhs, rhs, est.std)           # 因子名称、条目名称、标准化因子载荷
+
+# 绘制因子载荷图表
+ggplot(loadings_sem, aes(x = rhs, y = est.std, fill = lhs)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ lhs, scales = "free_x") +  # 按因子分面
+  theme_minimal() +
+  labs(fill = "Factor", x = "Items", y = "Loadings") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
 
 

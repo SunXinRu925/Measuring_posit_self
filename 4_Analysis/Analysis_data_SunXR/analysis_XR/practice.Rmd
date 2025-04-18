@@ -1,46 +1,94 @@
 ```{r}
-library(lavaan)
-library(ggplot2)
-library(reshape2)
-library(psych)
-
-# 假设 dataal 是您的数据框，其中前16列是问卷数据，后14列是认知任务指标
-# 进行探索性因子分析，确定特定因子的结构
-# 这里我们对整个数据框进行EFA
-efa_result <- fa(r = cor(data_al), nfactors = 2, fm = "minres", rotate = "oblimin")
-
-# 打印EFA结果，查看因子载荷
+# 自动确定因子数量
+fa_parallel <- fa.parallel(data_al, fa = "fa", fm = "minres", n.iter = 100)
+nfactors <- fa_parallel$nfact  # 推荐因子数量
+# 进行 EFA
+efa_result <- fa(r = cor(data_al), nfactors = nfactors, fm = "minres", rotate = "oblimin")
+# 打印因子分析结果，查看因子载荷
 print(efa_result)
 
-# 根据EFA结果，定义 bifactor 模型的模型公式
-# 假设EFA结果显示了2个特定因子，我们需要根据实际结果调整
-# 这里只是一个示例公式，您需要根据实际EFA结果调整
+
+# 提取因子载荷矩阵
+loadings <- as.data.frame(efa_result$loadings)
+# 根据因子载荷动态生成 bifactor 模型公式
+threshold <- 0.3  # 因子载荷的阈值
+model_formula <- ""
+
+for (factor_idx in 1:nfactors) {
+  # 检查因子索引是否在范围内
+  if (factor_idx <= ncol(loadings$x)) {
+    # 提取当前因子相关的条目
+    factor_items <- rownames(loadings$x)[abs(loadings$x[, factor_idx]) > threshold]
+    factor_name <- paste0("F", factor_idx)
+    
+    # 为模型公式添加条目
+    if (length(factor_items) > 0) {
+      model_formula <- paste0(
+        model_formula,
+        factor_name, " =~ ", paste(factor_items, collapse = " + "), "\n"
+      )
+    }
+  }
+}
+
+# 添加通用因子
+general_factor_items <- rownames(loadings$x)
+model_formula <- paste0(
+  "I =~ ", paste(general_factor_items, collapse = " + "), "\n", 
+  model_formula
+)
+# 打印生成的模型公式
+cat(model_formula)
+
+# 模型
 model_formula <- '
-  I =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al + Ability + Attraction + Wealth + Social + Moral + ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d + ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW + ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
-  F1 =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al + Ability + Attraction + Wealth + Social + Moral # 特定因子1，对应问卷数据
-  F2 =~ ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d + ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW + ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d # 特定因子2，对应认知任务指标
+  # 总体因子
+  I =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al +
+        Ability + Attraction + Wealth + Social + Moral +
+        ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d +
+        ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW +
+        ability_SRET_rt + moral_SRET_rt +
+        ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  
+  # 特定因子
+  F1 =~ selfclarity_al + ses_al + coreself_al + hsns_al + LOT_al + sde_al + IM_al + MorIden_al + IPC_al
+  F2 =~ NPI_al + moralSeImag_al + Ability + Attraction + Wealth + Social + Moral
+  F3 =~ ability_SRET_EW + moral_SRET_EW
+  F4 =~ moral_ALT_rt + moral_ALT_d
+  F5 =~ ability_ALT_rt + ability_ALT_d
+  F6 =~ ability_SRET_rt + moral_SRET_rt
+  F7 =~ ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  F8 =~ ability_IAT + moral_IAT
+
+  # 因子之间的协方差
+  F1 ~~ F2 + F3
+  F4 ~~ F5 + F6
+  F7 ~~ F8
 '
 
-# 拟合 bifactor 模型
-fit <- sem(model_formula, data = data_al)
+# 拟合模型
+fit <- sem(model_formula, data = data_al, estimator = "MLR")
+# 输出模型拟合结果和标准化估计
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+
+# 检查潜在问题
+#inspect(fit, "free")
+#fitMeasures(fit)
 
 # 提取因子载荷
-loadings <- fitted(fit)$lambda
+loadings_sem <- standardizedSolution(fit) %>%
+  as.data.frame() %>%                 # 确保为数据框
+  filter(op == "=~") %>%              # 筛选因子载荷行
+  select(lhs, rhs, est.std)           # 因子名称、条目名称、标准化因子载荷
 
-# 转换为长格式
-loadings_long <- melt(loadings)
-
-# 绘制图表
-ggplot(loadings_long, aes(x = variable, y = value, fill = factor(variable))) +
+# 绘制因子载荷图表
+ggplot(loadings_sem, aes(x = rhs, y = est.std, fill = lhs)) +
   geom_bar(stat = "identity") +
-  facet_wrap(~ L1, scales = "free_x") + # 根据因子分面
-  scale_fill_manual(values = c(rep("blue", 16), rep("red", 14))) + # 设置颜色
+  facet_wrap(~ lhs, scales = "free_x") +  # 按因子分面
   theme_minimal() +
-  labs(fill = "Factor", x = "Measures", y = "Loadings")
-
-# 请注意，您需要根据实际EFA结果调整model_formula中的公式
-# 以及根据实际因子数量和名称调整facet_wrap和fill的参数
-
-
+  labs(fill = "Factor", x = "Items", y = "Loadings") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+
 
