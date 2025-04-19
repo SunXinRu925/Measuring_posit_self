@@ -1223,7 +1223,7 @@ library(vegan)
 library(ggnewscale)
 library(RColorBrewer)
 # 对data_q中的每个元素取平方
-data_q_squared <- data_q ^ 2
+data_q_squared <- data_al[,1:16] ^ 2
 
 # 重命名数据框为data_q_adjusted
 data_q_adjusted <- data_q_squared
@@ -1362,7 +1362,7 @@ ggsave(p, filename = "Cluster_Correlation_with_Mantel.pdf", width = 9, height = 
 ###对认知任务进行降维（14列）
 ```{r}
 # 读取CSV文件
-data_z_PCA2 <- read_csv("data_z.csv")[, 139:152]
+data_z_PCA2 <- data_al[,17:30]
 # 进行PCA降维处理
 pca_result2 <- PCA(data_z_PCA2, graph = FALSE)
 # 查看PCA结果
@@ -1487,6 +1487,52 @@ cor_matrix <- cor(pca_scores1, pca_scores2)
 print(cor_matrix)
 ```
 
+#对问卷总分与认知任务的网络分析
+##data_al
+```{r}
+library(EGAnet)
+# Step 1: 数据准备
+network_data1 <- data_al[, 1:16]  # 第一组数据
+network_data2 <- data_al[, 17:30]  # 第二组数据
+# Step 2: 网络分析
+ega_model1 <- EGA(network_data1, model = "glasso")  # 第一组数据网络分析
+ega_model2 <- EGA(network_data2, model = "glasso")  # 第二组数据网络分析
+# 提取邻接矩阵
+adj_matrix1 <- ega_model1$network  # 第一组网络邻接矩阵
+adj_matrix2 <- ega_model2$network  # 第二组网络邻接矩阵
+# Step 3: 合并网络
+combined_matrix <- matrix(0, nrow = ncol(network_data1) + ncol(network_data2), 
+                          ncol = ncol(network_data1) + ncol(network_data2))
+rownames(combined_matrix) <- c(colnames(network_data1), colnames(network_data2))
+colnames(combined_matrix) <- c(colnames(network_data1), colnames(network_data2))
+# 填充邻接矩阵
+combined_matrix[1:ncol(network_data1), 1:ncol(network_data1)] <- adj_matrix1
+combined_matrix[(ncol(network_data1) + 1):nrow(combined_matrix), 
+                (ncol(network_data1) + 1):ncol(combined_matrix)] <- adj_matrix2
+# Step 4: 可视化
+groups <- list(
+  'Questionnaire' = 1:ncol(network_data1),
+  'Task' = (ncol(network_data1) + 1):ncol(combined_matrix)
+)
+
+pdf('Network_UpDown.pdf')
+qgraph(
+  combined_matrix,
+  groups = groups,
+  layout = layout,        # 自定义布局：上下分布
+  labels = FALSE,         # 不显示节点上的数字
+  legend = TRUE,          # 显示图例
+  label.cex = 0.8,        # 标签大小
+  vsize = 5,              # 节点大小
+  curveAll = TRUE,        # 显示所有边的曲率
+  curve = 0.8,            # 边曲率
+  edge.color = "black",   # 边的颜色
+  color = c("#add3f4", "#fccb8e"),  # 第一组蓝色，第二组橙色
+  theme = "colorblind",   # 色盲友好的主题
+  title = "Network: Questionnaire and Task"
+)
+dev.off()
+```
 
 
 #对现实结果的预测：抑郁/焦虑/拖延/主观幸福感
@@ -1625,6 +1671,7 @@ results_q_SWB <- data.frame(
   predicted = predictions_q_SWB
 )
 ```
+
 ```{r}
 results_q_SWB$residuals <- results_q_SWB$actual - results_q_SWB$predicted
 ggplot(results_q_SWB, aes(x = factor(1), y = residuals)) +
