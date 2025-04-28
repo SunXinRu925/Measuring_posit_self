@@ -578,10 +578,10 @@ ggplot(all_results_task, aes(x = actual, y = predicted, color = type)) +
 #Bifactor模型
 ```{r}
 # 自动确定模型因子数量
-fa_parallel <- fa.parallel(data_al, fa = "fa", fm = "minres", n.iter = 100)
+fa_parallel <- fa.parallel(data_z, fa = "fa", fm = "minres", n.iter = 100)
 nfactors <- fa_parallel$nfact  # 推荐因子数量
 # 进行 EFA
-efa_result <- fa(r = cor(data_al), nfactors = nfactors, fm = "minres", rotate = "oblimin")
+efa_result <- fa(r = cor(data_z), nfactors = nfactors, fm = "minres", rotate = "oblimin")
 # 打印因子分析结果，查看因子载荷
 print(efa_result)
 # 提取因子载荷矩阵
@@ -619,53 +619,56 @@ cat(model_formula)
 # 模型
 model_formula <- '
   # 总体因子
-  I =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al +
-        Ability + Attraction + Wealth + Social + Moral +
-        ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d +
-        ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW +
-        ability_SRET_rt + moral_SRET_rt +
-        ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  I =~ selfclarity_1 + selfclarity_2 + selfclarity_3 + selfclarity_4 + selfclarity_5 + selfclarity_6 + selfclarity_7 + selfclarity_8 + selfclarity_9 + selfclarity_10 + selfclarity_11 + selfclarity_12 + LOT_1 + LOT_2 + LOT_3 + LOT_4 + LOT_5 + LOT_6 + IPC_1 + IPC_2 + IPC_3 + IPC_4 + IPC_5 + IPC_6 + IPC_7 + IPC_8 + ses_1 + ses_2 + ses_3 + ses_4 + ses_5 + ses_6 + ses_7 + ses_8 + ses_9 + ses_10 + coreself_1 + coreself_2 + coreself_3 + coreself_4 + coreself_5 + coreself_6 + coreself_7 + coreself_8 + coreself_9 + coreself_10 + NPI1 + NPI2 + NPI3 + NPI4 + NPI5 + NPI6 + NPI7 + NPI8 + NPI9 + NPI10 + NPI11 + NPI12 + NPI13 + NPI14 + NPI15 + hsns_1 + hsns_2 + hsns_3 + hsns_4 + hsns_5 + hsns_6 + hsns_7 + hsns_8 + hsns_9 + hsns_10 + MorIden_1 + MorIden_2 + MorIden_3 + MorIden_4 + MorIden_5 + MorIden_6 + MorIden_7 + MorIden_8 + MorIden_9 + MorIden_10 + moralSeImag_1 + moralSeImag_2 + moralSeImag_3 + moralSeImag_4 + moralSeImag_5 + moralSeImag_6 + moralSeImag_7 + moralSeImag_8 + moralSeImag_9 + sde_1 + sde_2 + sde_3 + sde_4 + sde_5 + sde_6 + sde_7 + sde_8 + sde_9 + sde_10 + sde_11 + sde_12 + sde_13 + sde_14 + sde_15 + sde_16 + sde_17 + sde_18 + sde_19 + sde_20 + IM_1 + IM_2 + IM_3 + IM_4 + IM_5 + IM_6 + IM_7 + IM_8 + IM_9 + IM_10 + IM_11 + IM_12 + IM_13 + IM_14 + IM_15 + IM_16 + IM_17 + IM_18 + IM_19 + IM_20 + Ability + Attraction + Wealth + Social + Moral + ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d + ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW + ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
   
   # 特定因子
-  F1 =~ selfclarity_al + ses_al + coreself_al + hsns_al + LOT_al + sde_al + IM_al + MorIden_al + IPC_al
-  F2 =~ NPI_al + moralSeImag_al + Ability + Attraction + Wealth + Social + Moral
-  F3 =~ ability_SRET_EW + moral_SRET_EW
-  F4 =~ moral_ALT_rt + moral_ALT_d
-  F5 =~ ability_ALT_rt + ability_ALT_d
-  F6 =~ ability_SRET_rt + moral_SRET_rt
-  F7 =~ ability_SRET_RJ2_d + moral_SRET_RJ2_d
-  F8 =~ ability_IAT + moral_IAT
+F1 =~ LOT_3 + LOT_5 + IPC_6 + ses_1 + ses_2 + ses_3 + ses_4 + ses_5 + ses_6 + ses_7 + ses_8 + ses_9 + ses_10 + coreself_1 + coreself_2 + coreself_3 + coreself_4 + coreself_5 + coreself_6 + coreself_7 + coreself_8 + coreself_9 + coreself_10 + hsns_1 + sde_9 + sde_19 + Ability
+F2 =~ selfclarity_1 + selfclarity_2 + selfclarity_3 + selfclarity_4 + selfclarity_5 + selfclarity_6 + selfclarity_7 + selfclarity_8 + selfclarity_9 + selfclarity_10 + selfclarity_11 + selfclarity_12 + LOT_2 + NPI7 + sde_5 + sde_7 + sde_20
+F3 =~ moralSeImag_1 + moralSeImag_2 + moralSeImag_3 + moralSeImag_4 + moralSeImag_5 + moralSeImag_6 + moralSeImag_7 + moralSeImag_8 + moralSeImag_9 + Moral
+F4 =~ IM_2 + IM_3 + IM_4 + IM_6 + IM_7 + IM_9 + IM_10 + IM_11 + IM_12 + IM_13 + IM_14 + IM_15 + IM_16 + IM_17 + IM_18 + IM_19 + IM_20
+F5 =~ selfclarity_3 + selfclarity_10 + LOT_2 + coreself_2 + coreself_3 + hsns_3 + hsns_5 + hsns_6 + hsns_7 + hsns_8 + sde_2 + sde_6 + sde_10 + sde_12 + sde_14 + sde_18 + IM_1 + IM_3 + IM_5 + IM_7 + IM_15 + IM_19
+F6 =~ NPI1 + NPI2 + NPI3 + NPI4 + NPI5 + NPI6 + NPI8 + NPI10 + NPI11 + NPI15 + Social
+F7 =~ IPC_7 + MorIden_2 + MorIden_5 + MorIden_6 + MorIden_7 + MorIden_8 + MorIden_9 + MorIden_10
+F8 =~ IPC_1 + IPC_2 + IPC_7 + sde_9 + sde_13 + ability_SRET_EW
+F9 =~ hsns_9 + MorIden_3 + sde_1 + sde_3 + sde_11 + sde_15 + sde_17 + sde_19
+F10 =~ ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+F11 =~ ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d
+F12 =~ MorIden_1 + MorIden_3 + IM_10
 
   # 因子之间的协方差
-  F1 ~~ F2 + F3
-  F4 ~~ F5 + F6
-  F7 ~~ F8
+  #F1 ~~ F2 + F3
+  #F4 ~~ F5 + F6
+  #F7 ~~ F8
 '
-# 拟合模型
-fit <- sem(model_formula, data = data_al, estimator = "MLR")
-# 输出模型拟合结果和标准化估计
-summary(fit, fit.measures = TRUE, standardized = TRUE)
-
-# 检查潜在问题
-#inspect(fit, "free")
-#fitMeasures(fit)
-
-# 提取因子载荷
-loadings_sem <- standardizedSolution(fit) %>%
-  as.data.frame() %>%                 # 确保为数据框
-  filter(op == "=~") %>%              # 筛选因子载荷行
-  select(lhs, rhs, est.std)           # 因子名称、条目名称、标准化因子载荷
-
-# 绘制因子载荷图表
-ggplot(loadings_sem, aes(x = rhs, y = est.std, fill = lhs)) +
-  geom_bar(stat = "identity") +
-  facet_wrap(~ lhs, scales = "free_x") +  # 按因子分面
-  theme_minimal() +
-  labs(fill = "Factor", x = "Items", y = "Loadings") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+```{r}
+# 拟合模型
+model_formula = lavaan::sem(model_formula, 
+                      data=data_z, 
+                      #ordered = colnames(data_z), 
+                      std.lv = TRUE, 
+                      fixed.x = F,
+                      orthogonal = TRUE)
+# 输出模型拟合结果和标准化估计
+summary(model_formula , standardized = TRUE, fit.measures = TRUE)
+semPaths(model_formula , what = 'std', fade = F)
 
+```
+
+```{r}
+model_formula <- cfa(model_formula, data_z,orthogonal=TRUE) # 进行CFA
+summary(model_formula ,fit.measures="TRUE") # 显示总体结果
+fitMeasures(model_formula ,fit.measures="all", baseline.model=NULL) # 显示所有拟合指数
+standardizedSolution(model_formula) # 显示标准化的结果
+reliability_results <- semTools::reliability(model_formula)# 计算AVE、CR（Composite Reliability）等值
+semPaths(model_formula, bifactor = "G", 
+         title=F, what = "std", residuals = FALSE,
+         intercepts = FALSE, layout = "tree2",
+         label.cex=1, edge.label.cex=0.1, font=2,  
+         edge.color="black", fixedStyle = c("black",1),freeStyle = c("black",1),esize = 0.01,
+         rotation=1)                                                                 # 画图,bifactor指定哪个因素为bifactor；rotation控制方向，取值为1/2/3/4
+```
 
 
 
