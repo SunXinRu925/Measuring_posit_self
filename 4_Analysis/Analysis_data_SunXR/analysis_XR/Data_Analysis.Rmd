@@ -8,7 +8,8 @@
 pacman::p_load(
   psych, lavaan, ggplot2, reshape2, caret,
   FactoMineR, factoextra, tidyverse, linkET,
-  vegan, ggnewscale, RColorBrewer, EGAnet, xgboost
+  vegan, ggnewscale, RColorBrewer, EGAnet, xgboost,
+  semPlot, randomForest, Metrics
 )
 ```
 
@@ -654,7 +655,53 @@ model_formula = lavaan::sem(model_formula,
 summary(model_formula , standardized = TRUE, fit.measures = TRUE)
 semPaths(model_formula , what = 'std', fade = F)
 
+fit <- sem(model_formula, data = data_z, std.lv = TRUE, fixed.x = F, orthogonal = TRUE)
+# 提取因子得分
+factor_scores <- predict(fit, type = "factor.scores")
+
+# 查看因子得分
+head(factor_scores)
+
 ```
+
+```{r}
+summary(fit, standardized = TRUE, fit.measures = TRUE)
+
+# 提取因子得分
+factor_scores <- predict(fit)  # `type = "factor.scores"` 不是 lavaan 支持的参数，直接用 predict 提取
+head(factor_scores)  # 查看前几行因子得分
+
+# 提取因子载荷矩阵
+standardized_solution <- parameterEstimates(fit, standardized = TRUE)
+factor_loadings <- subset(standardized_solution, op == "=~")  # 提取因子载荷
+head(factor_loadings)  # 查看前几行因子载荷
+
+# 可视化路径图
+semPaths(fit, 
+         what = "std",  # 标准化路径系数
+         fade = FALSE,  # 不淡化路径
+         layout = "tree",  # 树形布局
+         style = "lisrel",  # LISREL 风格
+         residuals = TRUE,  # 显示残差
+         title = TRUE,  # 显示标题
+         label.cex = 0.8,  # 调整路径标签大小
+         edge.label.cex = 0.8,  # 调整路径系数大小
+         nCharNodes = 0,  # 隐藏节点标签
+         sizeMan = 8,  # 调整观测变量节点大小
+         sizeLat = 10,  # 调整潜变量节点大小
+         mar = c(5, 5, 5, 5))  # 调整边距
+
+
+
+
+
+
+
+
+
+
+```
+
 
 ```{r}
 model_formula <- cfa(model_formula, data_z,orthogonal=TRUE) # 进行CFA
@@ -672,8 +719,72 @@ semPaths(model_formula, bifactor = "G",
 
 
 
+#随机森林
+```{r}
+# 将Bifactor分析的因子得分作为随机森林的自变量
+# Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
+# Use set.seed for reproducibility
+combined_data <- cbind(factor_scores, health_var)
+# 检查合并后的数据框
+head(combined_data)
+set.seed(123)
+rf_split <- initial_split(combined_data, prop = .7)# 70%训练集，30%测试集
+rf_train <- training(rf_split)#训练集
+rf_test  <- testing(rf_split)#测试集
+```
 
+```{r Tuning the parameters1}
+#调参，选择maxnodes和ntree
+# If training the model takes too long try setting up lower value of N
+X_train_ = rf_train[1:352 , 2:13]
+y_train_ = rf_train[1:352,15]#SGPS
+rf.all.factor <- randomForest(x = X_train_, y = y_train_,type = regression, ntree = 100,importance = TRUE)
+```
 
+```{r}
+#tune the model调参
+set.seed(123)
+tuneRF(rf_train[1:352 , 2:13],rf_train[1:352,15],stepFactor=3)
+```
 
+```{r}
+#SGPS
+X_test = rf_test[1:151 , 2:13]
+y_test = rf_test[1:151,15]#SGPS
+predictions <- predict(rf.all.factor, X_test)
+result <- X_test
+result['SGPS'] <- y_test
+result['prediction']<-  predictions
+head(result)  
+ggplot(  ) + 
+  geom_point(aes(x = X_test$F1, y = y_test, color  = 'red', alpha = 0.5) ) + 
+  geom_point( aes(x = X_test$F1 , y = predictions, color = 'blue',  alpha = 0.5)) + 
+  labs(x = "F1", y = "SGPS", color = "", alpha = 'Transperency') +
+  scale_color_manual(labels = c( "Predicted", "Real"), values = c("blue", "red")) 
+plot(rf.all.factor)
+```
 
+```{r}
+print(paste0('MAE: ' , mae(y_test,predictions) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions , y_test)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions , y_test)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+
+#[1] "MAE: 7.55968984547461"
+#[1] "MSE: 77.4082373390361"
+#[1] "R2: 0.0101757749592005"
+```
+
+```{r}
+randomForest::importance(rf.all.factor)
+```
+
+```{r}
+varImpPlot(rf.all.factor,sort = FALSE)
+ImpData <- as.data.frame(randomForest::importance(rf.all.factor))
+ImpData$Var.Names <- row.names(ImpData)
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
 
