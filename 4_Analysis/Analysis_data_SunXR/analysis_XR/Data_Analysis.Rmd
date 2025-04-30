@@ -729,8 +729,8 @@ combined_data <- cbind(factor_scores, health_var)
 head(combined_data)
 set.seed(123)
 rf_split <- initial_split(combined_data, prop = .7)# 70%训练集，30%测试集
-rf_train <- training(rf_split)#训练集
-rf_test  <- testing(rf_split)#测试集
+rf_train <- training(rf_split)#训练集#352
+rf_test  <- testing(rf_split)#测试集#151
 ```
 
 ```{r Tuning the parameters1}
@@ -785,6 +785,91 @@ randomForest::importance(rf.all.factor)
 varImpPlot(rf.all.factor,sort = FALSE)
 ImpData <- as.data.frame(randomForest::importance(rf.all.factor))
 ImpData$Var.Names <- row.names(ImpData)
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+```{r}
+#gad
+y_test_gad = rf_test[1:151,16] #gad
+y_train_gad =rf_train[1:352,16] #gad
+
+gad<- randomForest(x = X_train_, y = y_train_gad,type =regression, ntree = 100,importance = TRUE)
+predictions_gad1 <- predict(gad, X_test)
+result_gad1 <- X_test 
+result_gad1['gad'] <- y_test_gad
+result_gad1['prediction']<-predictions_gad1
+head(result_gad1)   
+```
+
+```{r}
+randomForest::importance(gad)
+varImpPlot(gad,sort = FALSE)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(gad))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y= `%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend= `%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+```{r}
+#phq
+y_test_phq = rf_test[1:151,17]#phq
+y_train_phq =rf_train[1:352,17] #phq
+phq<- randomForest(x = X_train_, y = y_train_phq,type =regression, ntree = 100,importance = TRUE)
+predictions_phq <- predict(phq, X_test)
+result_phq <- X_test
+result_phq['phq'] <- y_test_phq
+result_phq['prediction']<-predictions_phq
+head(result_phq)   
+```
+```{r}
+randomForest::importance(phq)
+varImpPlot(phq,sort = FALSE)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(phq))
+ ImpData$Var.Names <- row.names(ImpData)
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )#y= `MeanDecreaseAccuracy`时无法运行
+```
+
+```{r}
+#SWB
+y_test_SWB = rf_test[1:151,18]#SWB
+y_train_SWB =rf_train[1:352,18] #SWB
+
+SWB <- randomForest(x = X_train_, y = y_train_SWB,type = regression, ntree = 100,importance = TRUE)
+predictions_SWB <- predict(SWB,X_test)
+result_SWB <- X_test
+result_SWB['SWB'] <- y_test_SWB
+result_SWB['prediction']<-  predictions_SWB
+head(result_SWB)   
+```
+```{r}
+print(paste0('MAE: ' , mae(y_test_SWB,predictions_SWB) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions_SWB, y_test_SWB)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions_SWB, y_test_SWB)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+
+#[1] "MAE: 6.25599558498896"
+#[1] "MSE: 57.8779193005887"
+#[1] "R2: 0.00597708772021511"
+```
+
+```{r}
+randomForest::importance(SWB)
+varImpPlot(SWB,sort = FALSE)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(SWB))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
 ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
 ```
 
