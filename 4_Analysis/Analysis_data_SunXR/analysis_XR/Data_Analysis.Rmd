@@ -788,6 +788,34 @@ ImpData$Var.Names <- row.names(ImpData)
 ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
 ```
 
+
+```{r}
+#SGPS
+y_test_SGPS = rf_test[1:151,15] #gad
+y_train_SGPS =rf_train[1:352,15] #gad
+
+SGPS<- randomForest(x = X_train_, y = y_train_SGPS,type =regression, ntree = 100,importance = TRUE)
+predictions_SGPS <- predict(SGPS, X_test)
+result_SGPS <- X_test 
+result_SGPS['gad'] <- y_test_SGPS
+result_SGPS['prediction']<-predictions_SGPS
+head(result_SGPS)   
+```
+
+```{r}
+randomForest::importance(SGPS)
+varImpPlot(SGPS,sort = FALSE)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(SGPS))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y= `%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend= `%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+
 ```{r}
 #gad
 y_test_gad = rf_test[1:151,16] #gad
@@ -878,12 +906,12 @@ df <- combined_data
 df <- df %>%
   pivot_longer(cols = starts_with("F"), names_to = "Component", values_to = "Value")
   pivot_longer(
-    cols = c(SGPS, gad, phq, SWB), # 指定要转换的列
+    cols = c("SGPS", "gad", "phq", "SWB"), # 指定要转换的列
     names_to = "variable",          # 新列名，用于存储原始列名
     values_to = "IncMSE"           # 新列名，用于存储原始列的值
   )
 
-ggplot(df, aes(x = c("F1","F2", "F3","F4", "F5", "F6",'F7', "F8", "F9", 'F10', "F11", "F12"), y = IncMSE, shape = variable, color = variable)) +
+ggplot(df, aes(x = factor(Component) , y = IncMSE, shape = variable, color = variable)) +
   geom_point(size = 5, alpha = 0.4) +  # 添加散点图层
   #geom_line(aes(group = variable), linetype = "dashed",  alpha = 0.5) +  # 添加虚线图层
   labs(
@@ -901,5 +929,70 @@ ggplot(df, aes(x = c("F1","F2", "F3","F4", "F5", "F6",'F7', "F8", "F9", 'F10', "
     axis.ticks = element_line(color = "black"),  # 设置刻度线的颜色
     axis.ticks.length = unit(0.2, "cm")  # 设置刻度线的长度
   )
+```
+
+```{r}
+# 定义一个函数来计算重要性并返回一个数据框
+calculate_importance <- function(model, var_name) {
+  imp <- as.data.frame(randomForest::importance(model))
+  imp$Var.Names <- row.names(imp)
+  imp$Variable <- var_name
+  return(imp)
+}
+
+# 训练随机森林模型
+set.seed(123) # 为了可重复性
+rf_SGPS <- randomForest(x = X_train_, y = y_train_SGPS, type = "regression", ntree = 100, importance = TRUE)
+rf_gad <- randomForest(x = X_train_, y = y_train_gad, type = "regression", ntree = 100, importance = TRUE)
+rf_phq <- randomForest(x = X_train_, y = y_train_phq, type = "regression", ntree = 100, importance = TRUE)
+rf_SWB <- randomForest(x = X_train_, y = y_train_SWB, type = "regression", ntree = 100, importance = TRUE)
+
+# 计算每个模型的重要性
+imp_SGPS <- calculate_importance(rf_SGPS, "SGPS")
+imp_gad <- calculate_importance(rf_gad, "gad")
+imp_phq <- calculate_importance(rf_phq, "phq")
+imp_SWB <- calculate_importance(rf_SWB, "SWB")
+
+# 合并所有重要性数据
+all_imp <- bind_rows(imp_SGPS, imp_gad, imp_phq, imp_SWB)
+
+# 首先，根据%IncMSE对数据进行排序
+all_imp_sorted <- all_imp %>%
+  arrange(`%IncMSE`)
+
+# 将Var.Names转换为有序因子，按照%IncMSE的排序顺序
+all_imp_sorted$Var.Names <- factor(all_imp_sorted$Var.Names, levels = unique(all_imp_sorted$Var.Names))
+
+
+
+all_imp_sorted$`%IncMSE` <- ifelse(all_imp_sorted$`%IncMSE` < 0, 0, all_imp_sorted$`%IncMSE`)
+
+# 按照MSE大小对数据进行排序
+all_imp_sorted <- all_imp_sorted %>% 
+  arrange(desc(`%IncMSE`)) # 降序排列，如果需要升序排列，可以使用arrange(%IncMSE)
+
+# 为Var.Names添加一个排序后的新列，用于在绘图时控制横轴的顺序
+all_imp_sorted$Var.Names.Ordered <- factor(all_imp_sorted$Var.Names, levels = unique(all_imp_sorted$Var.Names))
+
+# 使用ggplot绘制图形
+ggplot(all_imp_sorted, aes(x = Var.Names, y = `%IncMSE`, color = Variable)) +
+  geom_segment(aes(xend = Var.Names, yend = 0)) +
+  geom_point(aes(shape = Variable), size = 3) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  labs(
+    x = "Principal Components",
+    y = "Increase in MSE",
+    color = "Variable",
+    shape = "Variable"
+  ) +
+  scale_y_continuous(limits = c(0, max(all_imp_sorted$`%IncMSE`))) # 设置纵轴范围从0开始
+
 ```
 
