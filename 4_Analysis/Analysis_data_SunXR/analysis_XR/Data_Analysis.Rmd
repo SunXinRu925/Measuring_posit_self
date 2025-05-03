@@ -8,7 +8,8 @@
 pacman::p_load(
   psych, lavaan, ggplot2, reshape2, caret,
   FactoMineR, factoextra, tidyverse, linkET,
-  vegan, ggnewscale, RColorBrewer, EGAnet, xgboost
+  vegan, ggnewscale, RColorBrewer, EGAnet, xgboost,
+  semPlot, randomForest, Metrics
 )
 ```
 
@@ -578,10 +579,10 @@ ggplot(all_results_task, aes(x = actual, y = predicted, color = type)) +
 #Bifactor模型
 ```{r}
 # 自动确定模型因子数量
-fa_parallel <- fa.parallel(data_al, fa = "fa", fm = "minres", n.iter = 100)
+fa_parallel <- fa.parallel(data_z, fa = "fa", fm = "minres", n.iter = 100)
 nfactors <- fa_parallel$nfact  # 推荐因子数量
 # 进行 EFA
-efa_result <- fa(r = cor(data_al), nfactors = nfactors, fm = "minres", rotate = "oblimin")
+efa_result <- fa(r = cor(data_z), nfactors = nfactors, fm = "minres", rotate = "oblimin")
 # 打印因子分析结果，查看因子载荷
 print(efa_result)
 # 提取因子载荷矩阵
@@ -619,58 +620,379 @@ cat(model_formula)
 # 模型
 model_formula <- '
   # 总体因子
-  I =~ selfclarity_al + ses_al + coreself_al + hsns_al + NPI_al + LOT_al + sde_al + IM_al + MorIden_al + moralSeImag_al + IPC_al +
-        Ability + Attraction + Wealth + Social + Moral +
-        ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d +
-        ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW +
-        ability_SRET_rt + moral_SRET_rt +
-        ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  I =~ selfclarity_1 + selfclarity_2 + selfclarity_3 + selfclarity_4 + selfclarity_5 + selfclarity_6 + selfclarity_7 + selfclarity_8 + selfclarity_9 + selfclarity_10 + selfclarity_11 + selfclarity_12 + LOT_1 + LOT_2 + LOT_3 + LOT_4 + LOT_5 + LOT_6 + IPC_1 + IPC_2 + IPC_3 + IPC_4 + IPC_5 + IPC_6 + IPC_7 + IPC_8 + ses_1 + ses_2 + ses_3 + ses_4 + ses_5 + ses_6 + ses_7 + ses_8 + ses_9 + ses_10 + coreself_1 + coreself_2 + coreself_3 + coreself_4 + coreself_5 + coreself_6 + coreself_7 + coreself_8 + coreself_9 + coreself_10 + NPI1 + NPI2 + NPI3 + NPI4 + NPI5 + NPI6 + NPI7 + NPI8 + NPI9 + NPI10 + NPI11 + NPI12 + NPI13 + NPI14 + NPI15 + hsns_1 + hsns_2 + hsns_3 + hsns_4 + hsns_5 + hsns_6 + hsns_7 + hsns_8 + hsns_9 + hsns_10 + MorIden_1 + MorIden_2 + MorIden_3 + MorIden_4 + MorIden_5 + MorIden_6 + MorIden_7 + MorIden_8 + MorIden_9 + MorIden_10 + moralSeImag_1 + moralSeImag_2 + moralSeImag_3 + moralSeImag_4 + moralSeImag_5 + moralSeImag_6 + moralSeImag_7 + moralSeImag_8 + moralSeImag_9 + sde_1 + sde_2 + sde_3 + sde_4 + sde_5 + sde_6 + sde_7 + sde_8 + sde_9 + sde_10 + sde_11 + sde_12 + sde_13 + sde_14 + sde_15 + sde_16 + sde_17 + sde_18 + sde_19 + sde_20 + IM_1 + IM_2 + IM_3 + IM_4 + IM_5 + IM_6 + IM_7 + IM_8 + IM_9 + IM_10 + IM_11 + IM_12 + IM_13 + IM_14 + IM_15 + IM_16 + IM_17 + IM_18 + IM_19 + IM_20 + Ability + Attraction + Wealth + Social + Moral + ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d + ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW + ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
   
   # 特定因子
-  F1 =~ selfclarity_al + ses_al + coreself_al + hsns_al + LOT_al + sde_al + IM_al + MorIden_al + IPC_al
-  F2 =~ NPI_al + moralSeImag_al + Ability + Attraction + Wealth + Social + Moral
-  F3 =~ ability_SRET_EW + moral_SRET_EW
-  F4 =~ moral_ALT_rt + moral_ALT_d
-  F5 =~ ability_ALT_rt + ability_ALT_d
-  F6 =~ ability_SRET_rt + moral_SRET_rt
-  F7 =~ ability_SRET_RJ2_d + moral_SRET_RJ2_d
-  F8 =~ ability_IAT + moral_IAT
+F1 =~ LOT_3 + LOT_5 + IPC_6 + ses_1 + ses_2 + ses_3 + ses_4 + ses_5 + ses_6 + ses_7 + ses_8 + ses_9 + ses_10 + coreself_1 + coreself_2 + coreself_3 + coreself_4 + coreself_5 + coreself_6 + coreself_7 + coreself_8 + coreself_9 + coreself_10 + hsns_1 + sde_9 + sde_19 + Ability
+F2 =~ selfclarity_1 + selfclarity_2 + selfclarity_3 + selfclarity_4 + selfclarity_5 + selfclarity_6 + selfclarity_7 + selfclarity_8 + selfclarity_9 + selfclarity_10 + selfclarity_11 + selfclarity_12 + LOT_2 + NPI7 + sde_5 + sde_7 + sde_20
+F3 =~ moralSeImag_1 + moralSeImag_2 + moralSeImag_3 + moralSeImag_4 + moralSeImag_5 + moralSeImag_6 + moralSeImag_7 + moralSeImag_8 + moralSeImag_9 + Moral
+F4 =~ IM_2 + IM_3 + IM_4 + IM_6 + IM_7 + IM_9 + IM_10 + IM_11 + IM_12 + IM_13 + IM_14 + IM_15 + IM_16 + IM_17 + IM_18 + IM_19 + IM_20
+F5 =~ selfclarity_3 + selfclarity_10 + LOT_2 + coreself_2 + coreself_3 + hsns_3 + hsns_5 + hsns_6 + hsns_7 + hsns_8 + sde_2 + sde_6 + sde_10 + sde_12 + sde_14 + sde_18 + IM_1 + IM_3 + IM_5 + IM_7 + IM_15 + IM_19
+F6 =~ NPI1 + NPI2 + NPI3 + NPI4 + NPI5 + NPI6 + NPI8 + NPI10 + NPI11 + NPI15 + Social
+F7 =~ IPC_7 + MorIden_2 + MorIden_5 + MorIden_6 + MorIden_7 + MorIden_8 + MorIden_9 + MorIden_10
+F8 =~ IPC_1 + IPC_2 + IPC_7 + sde_9 + sde_13 + ability_SRET_EW
+F9 =~ hsns_9 + MorIden_3 + sde_1 + sde_3 + sde_11 + sde_15 + sde_17 + sde_19
+F10 =~ ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+F11 =~ ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d
+F12 =~ MorIden_1 + MorIden_3 + IM_10
 
   # 因子之间的协方差
-  F1 ~~ F2 + F3
-  F4 ~~ F5 + F6
-  F7 ~~ F8
+  #F1 ~~ F2 + F3
+  #F4 ~~ F5 + F6
+  #F7 ~~ F8
 '
+```
+
+```{r}
 # 拟合模型
-fit <- sem(model_formula, data = data_al, estimator = "MLR")
+model_formula = lavaan::sem(model_formula, 
+                      data=data_z, 
+                      #ordered = colnames(data_z), 
+                      std.lv = TRUE, 
+                      fixed.x = F,
+                      orthogonal = TRUE)
 # 输出模型拟合结果和标准化估计
-summary(fit, fit.measures = TRUE, standardized = TRUE)
+summary(model_formula , standardized = TRUE, fit.measures = TRUE)
+semPaths(model_formula , what = 'std', fade = F)
 
-# 检查潜在问题
-#inspect(fit, "free")
-#fitMeasures(fit)
+fit <- sem(model_formula, data = data_z, std.lv = TRUE, fixed.x = F, orthogonal = TRUE)
+# 提取因子得分
+factor_scores <- predict(fit, type = "factor.scores")
 
-# 提取因子载荷
-loadings_sem <- standardizedSolution(fit) %>%
-  as.data.frame() %>%                 # 确保为数据框
-  filter(op == "=~") %>%              # 筛选因子载荷行
-  select(lhs, rhs, est.std)           # 因子名称、条目名称、标准化因子载荷
+# 查看因子得分
+head(factor_scores)
 
-# 绘制因子载荷图表
-ggplot(loadings_sem, aes(x = rhs, y = est.std, fill = lhs)) +
-  geom_bar(stat = "identity") +
-  facet_wrap(~ lhs, scales = "free_x") +  # 按因子分面
-  theme_minimal() +
-  labs(fill = "Factor", x = "Items", y = "Loadings") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+summary(fit, standardized = TRUE, fit.measures = TRUE)
+
+# 提取因子得分
+factor_scores <- predict(fit)  # `type = "factor.scores"` 不是 lavaan 支持的参数，直接用 predict 提取
+head(factor_scores)  # 查看前几行因子得分
+
+# 提取因子载荷矩阵
+standardized_solution <- parameterEstimates(fit, standardized = TRUE)
+factor_loadings <- subset(standardized_solution, op == "=~")  # 提取因子载荷
+head(factor_loadings)  # 查看前几行因子载荷
+
+# 可视化路径图
+semPaths(fit, 
+         what = "std",  # 标准化路径系数
+         fade = FALSE,  # 不淡化路径
+         layout = "tree",  # 树形布局
+         style = "lisrel",  # LISREL 风格
+         residuals = TRUE,  # 显示残差
+         title = TRUE,  # 显示标题
+         label.cex = 0.8,  # 调整路径标签大小
+         edge.label.cex = 0.8,  # 调整路径系数大小
+         nCharNodes = 0,  # 隐藏节点标签
+         sizeMan = 8,  # 调整观测变量节点大小
+         sizeLat = 10,  # 调整潜变量节点大小
+         mar = c(5, 5, 5, 5))  # 调整边距
+
+
+
+
+
+
+
+
+
+
+```
+
+
+```{r}
+model_formula <- cfa(model_formula, data_z,orthogonal=TRUE) # 进行CFA
+summary(model_formula ,fit.measures="TRUE") # 显示总体结果
+fitMeasures(model_formula ,fit.measures="all", baseline.model=NULL) # 显示所有拟合指数
+standardizedSolution(model_formula) # 显示标准化的结果
+reliability_results <- semTools::reliability(model_formula)# 计算AVE、CR（Composite Reliability）等值
+semPaths(model_formula, bifactor = "G", 
+         title=F, what = "std", residuals = FALSE,
+         intercepts = FALSE, layout = "tree2",
+         label.cex=1, edge.label.cex=0.1, font=2,  
+         edge.color="black", fixedStyle = c("black",1),freeStyle = c("black",1),esize = 0.01,
+         rotation=1)                                                                 # 画图,bifactor指定哪个因素为bifactor；rotation控制方向，取值为1/2/3/4
 ```
 
 
 
+#随机森林
+```{r}
+# 将Bifactor分析的因子得分作为随机森林的自变量
+# Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
+# Use set.seed for reproducibility
+combined_data <- cbind(factor_scores, health_var)
+# 检查合并后的数据框
+head(combined_data)
+set.seed(123)
+rf_split <- initial_split(combined_data, prop = .7)# 70%训练集，30%测试集
+rf_train <- training(rf_split)#训练集#352
+rf_test  <- testing(rf_split)#测试集#151
+```
+
+```{r Tuning the parameters1}
+#调参，选择maxnodes和ntree
+# If training the model takes too long try setting up lower value of N
+X_train_ = rf_train[1:352 , 2:13]
+y_train_ = rf_train[1:352,15]#SGPS
+rf.all.factor <- randomForest(x = X_train_, y = y_train_,type = regression, ntree = 100,importance = TRUE)
+```
+
+```{r}
+#tune the model调参
+set.seed(123)
+tuneRF(rf_train[1:352 , 2:13],rf_train[1:352,15],stepFactor=3)
+```
+
+```{r}
+#SGPS
+X_test = rf_test[1:151 , 2:13]
+y_test = rf_test[1:151,15]#SGPS
+predictions <- predict(rf.all.factor, X_test)
+result <- X_test
+result['SGPS'] <- y_test
+result['prediction']<-  predictions
+head(result)  
+ggplot(  ) + 
+  geom_point(aes(x = X_test$F1, y = y_test, color  = 'red', alpha = 0.5) ) + 
+  geom_point( aes(x = X_test$F1 , y = predictions, color = 'blue',  alpha = 0.5)) + 
+  labs(x = "F1", y = "SGPS", color = "", alpha = 'Transperency') +
+  scale_color_manual(labels = c( "Predicted", "Real"), values = c("blue", "red")) 
+plot(rf.all.factor)
+```
+
+```{r}
+print(paste0('MAE: ' , mae(y_test,predictions) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions , y_test)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions , y_test)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+
+#[1] "MAE: 7.55968984547461"
+#[1] "MSE: 77.4082373390361"
+#[1] "R2: 0.0101757749592005"
+```
+
+```{r}
+randomForest::importance(rf.all.factor)
+```
+
+```{r}
+varImpPlot(rf.all.factor,sort = FALSE)
+ImpData <- as.data.frame(randomForest::importance(rf.all.factor))
+ImpData$Var.Names <- row.names(ImpData)
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+
+```{r}
+#SGPS
+y_test_SGPS = rf_test[1:151,15] #gad
+y_train_SGPS =rf_train[1:352,15] #gad
+
+SGPS<- randomForest(x = X_train_, y = y_train_SGPS,type =regression, ntree = 100,importance = TRUE)
+predictions_SGPS <- predict(SGPS, X_test)
+result_SGPS <- X_test 
+result_SGPS['gad'] <- y_test_SGPS
+result_SGPS['prediction']<-predictions_SGPS
+head(result_SGPS)   
+```
+
+```{r}
+randomForest::importance(SGPS)
+varImpPlot(SGPS,sort = FALSE)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(SGPS))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y= `%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend= `%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+
+```{r}
+#gad
+y_test_gad = rf_test[1:151,16] #gad
+y_train_gad =rf_train[1:352,16] #gad
+
+gad<- randomForest(x = X_train_, y = y_train_gad,type =regression, ntree = 100,importance = TRUE)
+predictions_gad1 <- predict(gad, X_test)
+result_gad1 <- X_test 
+result_gad1['gad'] <- y_test_gad
+result_gad1['prediction']<-predictions_gad1
+head(result_gad1)   
+```
+
+```{r}
+randomForest::importance(gad)
+varImpPlot(gad,sort = FALSE)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(gad))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y= `%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend= `%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+```{r}
+#phq
+y_test_phq = rf_test[1:151,17]#phq
+y_train_phq =rf_train[1:352,17] #phq
+phq<- randomForest(x = X_train_, y = y_train_phq,type =regression, ntree = 100,importance = TRUE)
+predictions_phq <- predict(phq, X_test)
+result_phq <- X_test
+result_phq['phq'] <- y_test_phq
+result_phq['prediction']<-predictions_phq
+head(result_phq)   
+```
+```{r}
+randomForest::importance(phq)
+varImpPlot(phq,sort = FALSE)
+```
+```{r}
+ImpData <- as.data.frame(randomForest::importance(phq))
+ ImpData$Var.Names <- row.names(ImpData)
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )#y= `MeanDecreaseAccuracy`时无法运行
+```
+
+```{r}
+#SWB
+y_test_SWB = rf_test[1:151,18]#SWB
+y_train_SWB =rf_train[1:352,18] #SWB
+
+SWB <- randomForest(x = X_train_, y = y_train_SWB,type = regression, ntree = 100,importance = TRUE)
+predictions_SWB <- predict(SWB,X_test)
+result_SWB <- X_test
+result_SWB['SWB'] <- y_test_SWB
+result_SWB['prediction']<-  predictions_SWB
+head(result_SWB)   
+```
+```{r}
+print(paste0('MAE: ' , mae(y_test_SWB,predictions_SWB) ))
+## [1] "MAE: 742.401258870433"
+print(paste0('MSE: ' ,caret::postResample(predictions_SWB, y_test_SWB)['RMSE']^2 ))
+## [1] "MSE: 1717272.6547428"
+print(paste0('R2: ' ,caret::postResample(predictions_SWB, y_test_SWB)['Rsquared'] ))
+## [1] "R2: 0.894548902990278"
+
+#[1] "MAE: 6.25599558498896"
+#[1] "MSE: 57.8779193005887"
+#[1] "R2: 0.00597708772021511"
+```
+
+```{r}
+randomForest::importance(SWB)
+varImpPlot(SWB,sort = FALSE)
+```
+
+```{r}
+ImpData <- as.data.frame(randomForest::importance(SWB))
+
+ ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
+```
+
+```{r}
+df <- combined_data
+df <- df %>%
+  pivot_longer(cols = starts_with("F"), names_to = "Component", values_to = "Value")
+  pivot_longer(
+    cols = c("SGPS", "gad", "phq", "SWB"), # 指定要转换的列
+    names_to = "variable",          # 新列名，用于存储原始列名
+    values_to = "IncMSE"           # 新列名，用于存储原始列的值
+  )
+
+ggplot(df, aes(x = factor(Component) , y = IncMSE, shape = variable, color = variable)) +
+  geom_point(size = 5, alpha = 0.4) +  # 添加散点图层
+  #geom_line(aes(group = variable), linetype = "dashed",  alpha = 0.5) +  # 添加虚线图层
+  labs(
+    title = "",
+    x = "主成分",
+    y = "%IncMSE",
+    shape = "因变量",
+    color = "因变量"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),  # 去除主网格线
+    panel.grid.minor = element_blank(),  # 去除次网格线
+    panel.border = element_rect(fill = NA, colour = "black", size = 0.5),  # 增加边框线
+    axis.ticks = element_line(color = "black"),  # 设置刻度线的颜色
+    axis.ticks.length = unit(0.2, "cm")  # 设置刻度线的长度
+  )
+```
+
+```{r}
+# 定义一个函数来计算重要性并返回一个数据框
+calculate_importance <- function(model, var_name) {
+  imp <- as.data.frame(randomForest::importance(model))
+  imp$Var.Names <- row.names(imp)
+  imp$Variable <- var_name
+  return(imp)
+}
+
+# 训练随机森林模型
+set.seed(123) # 为了可重复性
+rf_SGPS <- randomForest(x = X_train_, y = y_train_SGPS, type = "regression", ntree = 100, importance = TRUE)
+rf_gad <- randomForest(x = X_train_, y = y_train_gad, type = "regression", ntree = 100, importance = TRUE)
+rf_phq <- randomForest(x = X_train_, y = y_train_phq, type = "regression", ntree = 100, importance = TRUE)
+rf_SWB <- randomForest(x = X_train_, y = y_train_SWB, type = "regression", ntree = 100, importance = TRUE)
+
+# 计算每个模型的重要性
+imp_SGPS <- calculate_importance(rf_SGPS, "SGPS")
+imp_gad <- calculate_importance(rf_gad, "gad")
+imp_phq <- calculate_importance(rf_phq, "phq")
+imp_SWB <- calculate_importance(rf_SWB, "SWB")
+
+# 合并所有重要性数据
+all_imp <- bind_rows(imp_SGPS, imp_gad, imp_phq, imp_SWB)
+
+# 首先，根据%IncMSE对数据进行排序
+all_imp_sorted <- all_imp %>%
+  arrange(`%IncMSE`)
+
+# 将Var.Names转换为有序因子，按照%IncMSE的排序顺序
+all_imp_sorted$Var.Names <- factor(all_imp_sorted$Var.Names, levels = unique(all_imp_sorted$Var.Names))
 
 
 
+all_imp_sorted$`%IncMSE` <- ifelse(all_imp_sorted$`%IncMSE` < 0, 0, all_imp_sorted$`%IncMSE`)
 
+# 按照MSE大小对数据进行排序
+all_imp_sorted <- all_imp_sorted %>% 
+  arrange(desc(`%IncMSE`)) # 降序排列，如果需要升序排列，可以使用arrange(%IncMSE)
 
+# 为Var.Names添加一个排序后的新列，用于在绘图时控制横轴的顺序
+all_imp_sorted$Var.Names.Ordered <- factor(all_imp_sorted$Var.Names, levels = unique(all_imp_sorted$Var.Names))
 
+# 使用ggplot绘制图形
+ggplot(all_imp_sorted, aes(x = Var.Names, y = `%IncMSE`, color = Variable)) +
+  geom_segment(aes(xend = Var.Names, yend = 0)) +
+  geom_point(aes(shape = Variable), size = 3) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  labs(
+    x = "Principal Components",
+    y = "Increase in MSE",
+    color = "Variable",
+    shape = "Variable"
+  ) +
+  scale_y_continuous(limits = c(0, max(all_imp_sorted$`%IncMSE`))) # 设置纵轴范围从0开始
+
+```
 
