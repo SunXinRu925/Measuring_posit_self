@@ -645,28 +645,31 @@ F12 =~ MorIden_1 + MorIden_3 + IM_10
 
 ```{r}
 # 拟合模型
-model_formula = lavaan::sem(model_formula, 
+fit = lavaan::sem(model_formula, 
                       data=data_z, 
-                      #ordered = colnames(data_z), 
                       std.lv = TRUE, 
                       fixed.x = F,
                       orthogonal = TRUE)
 # 输出模型拟合结果和标准化估计
-summary(model_formula , standardized = TRUE, fit.measures = TRUE)
-semPaths(model_formula , what = 'std', fade = F)
-
-fit <- sem(model_formula, data = data_z, std.lv = TRUE, fixed.x = F, orthogonal = TRUE)
+summary(fit , standardized = TRUE, fit.measures = TRUE)
 # 提取因子得分
-factor_scores <- predict(fit, type = "factor.scores")
-
+factor_scores <- lavPredict(fit, type = "ov", method = "EBM") # 使用expected a posteriori方法提取因子得分
 # 查看因子得分
 head(factor_scores)
-
 ```
 
 ```{r}
-summary(fit, standardized = TRUE, fit.measures = TRUE)
+#模型拟合指标
+fitMeasures(fit, c("p","cfi", "tli", "rmsea", "srmr","AIC"))
+standardizedSolution(fit)
+residuals(fit, type = "cor")
+#CFI	比较拟合指数（Comparative Fit Index），评估模型拟合程度。	> 0.90（较好），> 0.95（优秀）。
+#TLI	Tucker-Lewis 指数，类似于 CFI，用于评估拟合质量。	> 0.90（较好），> 0.95（优秀）。
+#RMSEA	均方根误差近似（Root Mean Square Error of Approximation），反映模型误差大小。	< 0.08（较好），< 0.05（优秀）。
+#SRMR	标准化残差均方根（Standardized Root Mean Residual），表示模型预测值与实际数据之间的差异。	< 0.08（较好）。
+```
 
+```{r}
 # 提取因子得分
 factor_scores <- predict(fit)  # `type = "factor.scores"` 不是 lavaan 支持的参数，直接用 predict 提取
 head(factor_scores)  # 查看前几行因子得分
@@ -690,16 +693,6 @@ semPaths(fit,
          sizeMan = 8,  # 调整观测变量节点大小
          sizeLat = 10,  # 调整潜变量节点大小
          mar = c(5, 5, 5, 5))  # 调整边距
-
-
-
-
-
-
-
-
-
-
 ```
 
 
@@ -994,5 +987,99 @@ ggplot(all_imp_sorted, aes(x = Var.Names, y = `%IncMSE`, color = Variable)) +
   ) +
   scale_y_continuous(limits = c(0, max(all_imp_sorted$`%IncMSE`))) # 设置纵轴范围从0开始
 
+```
+#Lasso回归分析
+```{r}
+# 加载必要的包
+library(glmnet)
+library(ggplot2)
+library(reshape2)
+
+# 读取数据
+#combined_data <- read.csv("combined_data.csv")
+
+# 提取因子数据 (F1 ~ F12) 和健康指标 (第15 ~ 18列)
+X <- as.matrix(combined_data[, 2:13])  # 因子数据
+y <- as.matrix(combined_data[, 15:18])  # 健康指标
+
+# 设置预测目标（以健康指标中的第1列为例，如需预测其他指标可更改列号）
+target <- y[, 4]
+
+# 标准化数据
+X_scaled <- scale(X)
+y_scaled <- scale(target)
+
+# 拟合 LASSO 模型
+set.seed(123)
+lasso_model <- cv.glmnet(X_scaled, y_scaled, alpha = 1, nfolds = 10, standardize = TRUE)
+
+# 提取最佳 lambda 值
+best_lambda <- lasso_model$lambda.min
+
+# 使用最佳 lambda 值重新拟合模型
+final_model <- glmnet(X_scaled, y_scaled, alpha = 1, lambda = 0.001)
+
+# 提取变量的回归系数
+coefficients <- as.data.frame(as.matrix(coef(final_model)))
+coefficients <- coefficients[-1, , drop = FALSE]  # 去掉截距项
+colnames(coefficients) <- c("Coefficient")
+coefficients$Factor <- rownames(coefficients)
+
+# 按绝对值排序以查看贡献最大因子
+coefficients <- coefficients[order(abs(coefficients$Coefficient), decreasing = TRUE), ]
+
+# 可视化结果：展示因子预测力
+ggplot(coefficients, aes(x = reorder(Factor, Coefficient), y = Coefficient, fill = Coefficient)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  coord_flip() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  labs(title = "Predictive Power of Factors (LASSO Regression)",
+       x = "Factors",
+       y = "Coefficient") +
+  theme_minimal()
+
+# 输出最佳 lambda 和变量系数
+print(paste("Best lambda:", best_lambda))
+print(coefficients)
+
+# 如需预测其他健康指标，将 `target` 替换为 y[, 2], y[, 3], 或 y[, 4]
+
+```
+```{r}
+# 数据准备
+coefficients$FactorID <- 1:nrow(coefficients)  # 为每个因子分配一个唯一的ID
+coefficients$Angle <- 90 - 360 * (coefficients$FactorID - 0.5) / nrow(coefficients)  # 确定因子标签的角度
+coefficients$hjust <- ifelse(coefficients$Angle < -90, 1, 0)  # 设置因子标签的对齐方式
+coefficients$Angle <- ifelse(coefficients$Angle < -90, coefficients$Angle + 180, coefficients$Angle)  # 翻转角度以便更易阅读
+
+# 自定义颜色映射，和示例中的颜色一致
+custom_colors <- c(
+  "#5AB4E5", "#D7E698", "#D99BBB", "#F9F299",
+  "#F7A899", "#E87482", "#9B8191", "#8F888B"
+)
+
+# 绘制径向堆积柱状图
+ggplot(coefficients, aes(x = as.factor(FactorID), y = abs(Coefficient), fill = Coefficient)) +
+  # 绘制柱状图
+  geom_bar(stat = "identity", width = 0.8) + 
+  coord_polar(start = 0) +  # 转换为径向图
+  # 设置颜色映射
+  scale_fill_gradientn(colors = custom_colors) +
+  # 添加因子标签
+  geom_text(aes(label = Factor, y = abs(Coefficient) + 0.05, angle = Angle, hjust = hjust), size = 4, color = "black") +
+  # 添加坐标轴和刻度线
+  geom_hline(yintercept = c(0.025, 0.05,0.075, 0.10), color = "grey70", linetype = "dashed") +
+  annotate("text", x = 0, y = c(0.025, 0.05,0.075, 0.10), label = c("25%", "50%", "75%", "100%"), color = "grey30", size = 4, vjust = -0.5) +
+  # 调整标签和美化
+  labs(title = "Predictive Power of Factors (Radial Chart)",
+       x = "", y = "Predictive Power") +
+  theme_minimal() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 16),
+    legend.position = "right"
+  )
 ```
 
