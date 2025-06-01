@@ -9,7 +9,7 @@ pacman::p_load(
   psych, lavaan, ggplot2, reshape2, caret,
   FactoMineR, factoextra, tidyverse, linkET,
   vegan, ggnewscale, RColorBrewer, EGAnet, xgboost,
-  semPlot, randomForest, Metrics
+  semPlot, randomForest, Metrics,corrplot, rsample
 )
 ```
 
@@ -164,6 +164,32 @@ fviz_pca_ind(pca_q_result, col.ind = "cos2",
 pca_q_scores <- as.data.frame(pca_q_result$ind$coord)
 write.csv(pca_q_scores, "PCA1.csv", row.names = FALSE)
 ```
+#贝叶斯因子确定最佳因子数，EFA分析
+```{r}
+# 根据贝叶斯信息准则（BIC）确认最佳因子数（8）
+
+fa_result <- list()
+bic_values <- c()
+for (i in 1:15) {  # 测试从 1 到 15 个因子
+  fit <- fa(all_data_merged , nfactors = i, fm = "minres",  rotate = "varimax")
+  fa_result[[i]] <- fit
+  bic_values[i] <- fit$BIC
+}
+print(bic_values)
+best_factors <- which.min(bic_values)
+print(best_factors)  # 输出最佳因子数
+
+# 基于最佳因子数进行探索性因子分析
+efa_result_merged <- fa(all_data_merged, nfactors = best_factors, rotate = "oblimin", fm = "minres")
+print(efa_result_merged)
+# 可视化
+fa.diagram(efa_result_merged, simple = T) # simple = FALSE会显示所有载荷，
+
+# 提取因子得分
+efa_factor_scores <- factor.scores(all_data_merged, f = efa_result_merged)$scores
+```
+
+
 #聚类+网络热图
 ```{r}
 #由于mantel检验无法对负值进行分析，因此在此步骤将计算z分数后的问卷总分进行平方处理
@@ -717,11 +743,15 @@ semPaths(model_formula, bifactor = "G",
 # 将Bifactor分析的因子得分作为随机森林的自变量
 # Create training (70%) and test (30%) sets for the AmesHousing::make_ames() data.
 # Use set.seed for reproducibility
-combined_data <- cbind(factor_scores, health_var)
-# 检查合并后的数据框
-head(combined_data)
+#combined_data <- cbind(factor_scores, health_var)
+# 检查合并后的数据框 
+#head(combined_data)
+#install.packages("rsample")  # 安装包
+library(rsample)             # 加载包
+library(randomForest)
+#efa结果分析
 set.seed(123)
-rf_split <- initial_split(combined_data, prop = .7)# 70%训练集，30%测试集
+rf_split <- initial_split(combined, prop = .7)# 70%训练集，30%测试集
 rf_train <- training(rf_split)#训练集#352
 rf_test  <- testing(rf_split)#测试集#151
 ```
@@ -729,29 +759,29 @@ rf_test  <- testing(rf_split)#测试集#151
 ```{r Tuning the parameters1}
 #调参，选择maxnodes和ntree
 # If training the model takes too long try setting up lower value of N
-X_train_ = rf_train[1:352 , 2:13]
-y_train_ = rf_train[1:352,15]#SGPS
+X_train_ = rf_train[1:352 , 1:8]
+y_train_ = rf_train[1:352,10]#SGPS
 rf.all.factor <- randomForest(x = X_train_, y = y_train_,type = regression, ntree = 100,importance = TRUE)
 ```
 
 ```{r}
 #tune the model调参
 set.seed(123)
-tuneRF(rf_train[1:352 , 2:13],rf_train[1:352,15],stepFactor=3)
+tuneRF(rf_train[1:352 , 1:8],rf_train[1:352,10],stepFactor=3)
 ```
 
 ```{r}
 #SGPS
-X_test = rf_test[1:151 , 2:13]
-y_test = rf_test[1:151,15]#SGPS
+X_test = rf_test[1:151 , 1:8]
+y_test = rf_test[1:151,10]#SGPS
 predictions <- predict(rf.all.factor, X_test)
 result <- X_test
 result['SGPS'] <- y_test
 result['prediction']<-  predictions
 head(result)  
 ggplot(  ) + 
-  geom_point(aes(x = X_test$F1, y = y_test, color  = 'red', alpha = 0.5) ) + 
-  geom_point( aes(x = X_test$F1 , y = predictions, color = 'blue',  alpha = 0.5)) + 
+  geom_point(aes(x = X_test$MR1, y = y_test, color  = 'red', alpha = 0.5) ) + 
+  geom_point( aes(x = X_test$MR1 , y = predictions, color = 'blue',  alpha = 0.5)) + 
   labs(x = "F1", y = "SGPS", color = "", alpha = 'Transperency') +
   scale_color_manual(labels = c( "Predicted", "Real"), values = c("blue", "red")) 
 plot(rf.all.factor)
@@ -784,13 +814,13 @@ ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names,
 
 ```{r}
 #SGPS
-y_test_SGPS = rf_test[1:151,15] #gad
-y_train_SGPS =rf_train[1:352,15] #gad
+y_test_SGPS = rf_test[1:151,10] #gad
+y_train_SGPS =rf_train[1:352,10] #gad
 
 SGPS<- randomForest(x = X_train_, y = y_train_SGPS,type =regression, ntree = 100,importance = TRUE)
 predictions_SGPS <- predict(SGPS, X_test)
 result_SGPS <- X_test 
-result_SGPS['gad'] <- y_test_SGPS
+result_SGPS['SGPS'] <- y_test_SGPS
 result_SGPS['prediction']<-predictions_SGPS
 head(result_SGPS)   
 ```
@@ -811,8 +841,8 @@ ggplot(ImpData, aes(x=Var.Names, y= `%IncMSE`)) +  geom_segment( aes(x=Var.Names
 
 ```{r}
 #gad
-y_test_gad = rf_test[1:151,16] #gad
-y_train_gad =rf_train[1:352,16] #gad
+y_test_gad = rf_test[1:151,11] #gad
+y_train_gad =rf_train[1:352,11] #gad
 
 gad<- randomForest(x = X_train_, y = y_train_gad,type =regression, ntree = 100,importance = TRUE)
 predictions_gad1 <- predict(gad, X_test)
@@ -820,11 +850,18 @@ result_gad1 <- X_test
 result_gad1['gad'] <- y_test_gad
 result_gad1['prediction']<-predictions_gad1
 head(result_gad1)   
+mae <- mean(abs(y_test_gad - predictions_gad1))
+mse <- mean((y_test_gad - predictions_gad1)^2)
+r_squared <- cor(y_test_gad, predictions_gad1)^2
+print(paste("MAE:", mae))
+print(paste("MSE:", mse))
+print(paste("R²:", r_squared))
+
 ```
 
 ```{r}
 randomForest::importance(gad)
-varImpPlot(gad,sort = FALSE)
+#varImpPlot(gad,sort = FALSE)
 ```
 
 ```{r}
@@ -836,15 +873,53 @@ ggplot(ImpData, aes(x=Var.Names, y= `%IncMSE`)) +  geom_segment( aes(x=Var.Names
 ```
 
 ```{r}
+# 根据目标变量（如 gad）与每个自变量的相关系数方向来估计正负
+correlations <- cor(X_train_, y_train_gad)
+
+# 获取变量重要性
+importance_values <- randomForest::importance(gad)
+
+# 添加相关系数方向
+importance_with_direction <- as.data.frame(importance_values)
+importance_with_direction$Direction <- ifelse(correlations > 0, "Positive", "Negative")
+
+# 查看结果
+print(importance_with_direction)
+
+# 可视化（正负方向不同颜色）
+library(ggplot2)
+importance_with_direction$Variable <- rownames(importance_with_direction)
+ggplot(importance_with_direction, aes(x = reorder(Variable, `%IncMSE`), y = `%IncMSE`, fill = Direction)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Positive" = "blue", "Negative" = "red")) +
+  labs(title = "Variable Importance with Direction",
+       x = "Variables", y = "%IncMSE") +
+  theme_minimal()
+
+```
+
+
+
+```{r}
 #phq
-y_test_phq = rf_test[1:151,17]#phq
-y_train_phq =rf_train[1:352,17] #phq
+y_test_phq = rf_test[1:151,12]#phq
+y_train_phq =rf_train[1:352,12] #phq
 phq<- randomForest(x = X_train_, y = y_train_phq,type =regression, ntree = 100,importance = TRUE)
 predictions_phq <- predict(phq, X_test)
 result_phq <- X_test
 result_phq['phq'] <- y_test_phq
 result_phq['prediction']<-predictions_phq
 head(result_phq)   
+# 计算性能指标
+mse_phq <- mean((result_phq$prediction - result_phq$phq)^2)  # Mean Squared Error (MSE)
+mae_phq <- mae(result_phq$phq, result_phq$prediction)         # Mean Absolute Error (MAE)
+r_squared_phq <- cor(result_phq$prediction, result_phq$phq)^2 # R-squared (R²)
+
+# 输出结果
+cat("Mean Squared Error (MSE):", mse_phq, "\n")
+cat("Mean Absolute Error (MAE):", mae_phq, "\n")
+cat("R-squared (R²):", r_squared_phq, "\n")
 ```
 ```{r}
 randomForest::importance(phq)
@@ -855,11 +930,42 @@ ImpData <- as.data.frame(randomForest::importance(phq))
  ImpData$Var.Names <- row.names(ImpData)
 ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )#y= `MeanDecreaseAccuracy`时无法运行
 ```
+```{r}
+# 计算目标变量（phq）与自变量的相关系数方向
+correlations_phq <- cor(X_train_, y_train_phq)
+
+# 获取变量重要性
+importance_values_phq <- randomForest::importance(phq)
+
+# 将变量重要性和相关性方向整合到一个数据框中
+importance_with_direction_phq <- as.data.frame(importance_values_phq)
+importance_with_direction_phq$Direction <- ifelse(correlations_phq > 0, "Positive", "Negative")
+
+# 添加变量名称
+importance_with_direction_phq$Variable <- rownames(importance_with_direction_phq)
+
+# 查看结果
+print(importance_with_direction_phq)
+
+# 可视化：根据正负方向分配颜色
+library(ggplot2)
+ggplot(importance_with_direction_phq, aes(x = reorder(Variable, `%IncMSE`), y = `%IncMSE`, fill = Direction)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  coord_flip() +
+  scale_fill_manual(values = c("Positive" = "blue", "Negative" = "red")) +
+  labs(title = "Variable Importance with Direction for PHQ",
+       x = "Variables", y = "%IncMSE", fill = "Direction") +
+  theme_minimal()
+
+```
+
+
+
 
 ```{r}
 #SWB
-y_test_SWB = rf_test[1:151,18]#SWB
-y_train_SWB =rf_train[1:352,18] #SWB
+y_test_SWB = rf_test[1:151,13]#SWB
+y_train_SWB =rf_train[1:352,13] #SWB
 
 SWB <- randomForest(x = X_train_, y = y_train_SWB,type = regression, ntree = 100,importance = TRUE)
 predictions_SWB <- predict(SWB,X_test)
@@ -893,11 +999,39 @@ ImpData <- as.data.frame(randomForest::importance(SWB))
 
 ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +  theme_light() +  coord_flip() +  theme(    legend.position="bottom",    panel.grid.major.y = element_blank(),    panel.border = element_blank(),    axis.ticks.y = element_blank()  )
 ```
+```{r}
+# 计算目标变量（SWB）与自变量的相关系数方向
+correlations_SWB <- cor(X_train_, y_train_SWB)
+
+# 获取变量重要性
+importance_values_SWB <- randomForest::importance(SWB)
+
+# 将变量重要性和相关性方向整合到一个数据框中
+importance_with_direction_SWB <- as.data.frame(importance_values_SWB)
+importance_with_direction_SWB$Direction <- ifelse(correlations_SWB > 0, "Positive", "Negative")
+
+# 添加变量名称
+importance_with_direction_SWB$Variable <- rownames(importance_with_direction_SWB)
+
+# 查看结果
+print(importance_with_direction_SWB)
+
+# 可视化：根据正负方向分配颜色
+library(ggplot2)
+ggplot(importance_with_direction_SWB, aes(x = reorder(Variable, `%IncMSE`), y = `%IncMSE`, fill = Direction)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  coord_flip() +
+  scale_fill_manual(values = c("Positive" = "blue", "Negative" = "red")) +
+  labs(title = "Variable Importance with Direction for SWB",
+       x = "Variables", y = "%IncMSE", fill = "Direction") +
+  theme_minimal()
+
+```
+
 
 ```{r}
-df <- combined_data
-df <- df %>%
-  pivot_longer(cols = starts_with("F"), names_to = "Component", values_to = "Value")
+df <- combined %>%
+  pivot_longer(cols = starts_with("MR"), names_to = "Component", values_to = "Value")%>%
   pivot_longer(
     cols = c("SGPS", "gad", "phq", "SWB"), # 指定要转换的列
     names_to = "variable",          # 新列名，用于存储原始列名
@@ -995,12 +1129,19 @@ library(glmnet)
 library(ggplot2)
 library(reshape2)
 
-# 读取数据
-#combined_data <- read.csv("combined_data.csv")
+
+# 提取efa因子得分
+#efa_scores <- efa_result_merged$scores
+# 将因子得分转换为数据框
+#efa_scores <- as.data.frame(efa_scores)
+# 查看前几行因子得分
+#head(efa_scores)
+combined <- cbind(efa_factor_scores, health_var)
+
 
 # 提取因子数据 (F1 ~ F12) 和健康指标 (第15 ~ 18列)
-X <- as.matrix(combined_data[, 2:13])  # 因子数据
-y <- as.matrix(combined_data[, 15:18])  # 健康指标
+X <- as.matrix(combined[, 1:8])  # 因子数据
+y <- as.matrix(combined[, 10:13])  # 健康指标
 
 # 设置预测目标（以健康指标中的第1列为例，如需预测其他指标可更改列号）
 target <- y[, 4]
@@ -1045,7 +1186,198 @@ print(coefficients)
 # 如需预测其他健康指标，将 `target` 替换为 y[, 2], y[, 3], 或 y[, 4]
 
 ```
+
+
+
+
+
 ```{r}
+# 数据准备
+coefficients$FactorID <- 1:nrow(coefficients)  # 为每个因子分配一个唯一的ID
+coefficients$Angle <- 90 - 360 * (coefficients$FactorID - 0.5) / nrow(coefficients)  # 确定因子标签的角度
+coefficients$hjust <- ifelse(coefficients$Angle < -90, 1, 0)  # 设置因子标签的对齐方式
+coefficients$Angle <- ifelse(coefficients$Angle < -90, coefficients$Angle + 180, coefficients$Angle)  # 翻转角度以便更易阅读
+
+# 自定义颜色映射，和示例中的颜色一致
+custom_colors <- c(
+  "#5AB4E5", "#D7E698", "#D99BBB", "#F9F299",
+  "#F7A899", "#E87482", "#9B8191", "#8F888B"
+)
+
+# 绘制径向堆积柱状图
+ggplot(coefficients, aes(x = as.factor(FactorID), y = abs(Coefficient), fill = Coefficient)) +
+  # 绘制柱状图
+  geom_bar(stat = "identity", width = 0.8) + 
+  coord_polar(start = 0) +  # 转换为径向图
+  # 设置颜色映射
+  scale_fill_gradientn(colors = custom_colors) +
+  # 添加因子标签
+  geom_text(aes(label = Factor, y = abs(Coefficient) + 0.05, angle = Angle, hjust = hjust), size = 4, color = "black") +
+  # 添加坐标轴和刻度线
+  geom_hline(yintercept = c(0.025, 0.05,0.075, 0.10), color = "grey70", linetype = "dashed") +
+  annotate("text", x = 0, y = c(0.025, 0.05,0.075, 0.10), label = c("25%", "50%", "75%", "100%"), color = "grey30", size = 4, vjust = -0.5) +
+  # 调整标签和美化
+  labs(title = "Predictive Power of Factors (Radial Chart)",
+       x = "", y = "Predictive Power") +
+  theme_minimal() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 16),
+    legend.position = "right"
+  )
+```
+
+```{r}
+# 获取预测值
+predictions <- predict(final_model, X_scaled)
+
+# 计算指标
+mse <- mean((y_scaled - predictions)^2)  # 均方误差
+mae <- mean(abs(y_scaled - predictions))  # 平均绝对误差
+r_squared <- 1 - sum((y_scaled - predictions)^2) / sum((y_scaled - mean(y_scaled))^2)  # R²
+
+# 输出指标
+cat("Mean Squared Error (MSE):", mse, "\n")
+cat("Mean Absolute Error (MAE):", mae, "\n")
+cat("R-squared (R²):", r_squared, "\n")
+
+```
+
+
+
+```{r}
+# 读取 CSV 文件
+all_data <- read.csv("all_data_cleaned.csv")
+
+all_data_merged <- all_data %>%
+  select(-ends_with("_al"), -matches("^(gad_|phq_|swb_|SGPS_)"),-c("gad","phq","obj_ses1","fri_ses2"),-X)
+```
+#对hsns问卷进行反向计分
+```{r}
+# 假设反向计分范围为 1-5
+min_score <- 1
+max_score <- 5
+
+# 找到以 "hsns_" 开头的列
+hsns_columns <- grep("^hsns_", names(all_data_merged), value = TRUE)
+
+# 创建一个新的数据框用于存储反向计分后的数据
+re_score <- all_data_merged
+
+# 对这些列进行反向计分
+for (col in hsns_columns) {
+  re_score[[col]] <- max_score + min_score - all_data_merged[[col]]
+}
+
+cor_matrix <- cor(re_score, method = "pearson")  # 可选方法：pearson/spearman/kendall
+corrplot(
+  cor_matrix, 
+  method = "color", 
+  type = "upper", 
+ tl.col = "black", 
+ tl.srt = 45,
+ diag = FALSE,
+  col = colorRampPalette(c("blue", "white", "red"))(20),
+  title = "反向计分相关系数热图"
+)
+```
+#Bifactor
+```{r}
+# 运行平行分析以确定因子数
+parallel_result <- fa.parallel(all_data_merged, fm = "minres", fa = "fa")
+
+# 输出建议的因子数
+best_nfactors <- parallel_result$nfact
+print(paste("建议的因子数：", best_nfactors))
+# 运行 EFA
+efa_result <- fa(all_data_merged, nfactors = best_nfactors, rotate = "oblimin", fm = "minres")
+
+# 输出因子载荷
+print(efa_result)
+
+# 检查因子解释的总方差比例
+variance_explained <- efa_result$Vaccounted
+print(variance_explained)
+summary(fit, standardized = TRUE, fit.measures = TRUE)
+bifactor_model <- '
+  # 总体因子
+  I =~ selfclarity_1 + selfclarity_2 + selfclarity_3 + selfclarity_4 + selfclarity_5 + selfclarity_6 + selfclarity_7 + selfclarity_8 + selfclarity_9 + selfclarity_10 + selfclarity_11 + selfclarity_12 + LOT_1 + LOT_2 + LOT_3 + LOT_4 + LOT_5 + LOT_6 + IPC_1 + IPC_2 + IPC_3 + IPC_4 + IPC_5 + IPC_6 + IPC_7 + IPC_8 + ses_1 + ses_2 + ses_3 + ses_4 + ses_5 + ses_6 + ses_7 + ses_8 + ses_9 + ses_10 + coreself_1 + coreself_2 + coreself_3 + coreself_4 + coreself_5 + coreself_6 + coreself_7 + coreself_8 + coreself_9 + coreself_10 + NPI1 + NPI2 + NPI3 + NPI4 + NPI5 + NPI6 + NPI7 + NPI8 + NPI9 + NPI10 + NPI11 + NPI12 + NPI13 + NPI14 + NPI15 + hsns_1 + hsns_2 + hsns_3 + hsns_4 + hsns_5 + hsns_6 + hsns_7 + hsns_8 + hsns_9 + hsns_10 + MorIden_1 + MorIden_2 + MorIden_3 + MorIden_4 + MorIden_5 + MorIden_6 + MorIden_7 + MorIden_8 + MorIden_9 + MorIden_10 + moralSeImag_1 + moralSeImag_2 + moralSeImag_3 + moralSeImag_4 + moralSeImag_5 + moralSeImag_6 + moralSeImag_7 + moralSeImag_8 + moralSeImag_9 + sde_1 + sde_2 + sde_3 + sde_4 + sde_5 + sde_6 + sde_7 + sde_8 + sde_9 + sde_10 + sde_11 + sde_12 + sde_13 + sde_14 + sde_15 + sde_16 + sde_17 + sde_18 + sde_19 + sde_20 + IM_1 + IM_2 + IM_3 + IM_4 + IM_5 + IM_6 + IM_7 + IM_8 + IM_9 + IM_10 + IM_11 + IM_12 + IM_13 + IM_14 + IM_15 + IM_16 + IM_17 + IM_18 + IM_19 + IM_20 + Ability + Attraction + Wealth + Social + Moral + ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d + ability_IAT + moral_IAT + ability_SRET_EW + moral_SRET_EW + ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ1_d + moral_SRET_RJ1_d + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+  
+  # 特定因子
+F1 =~ LOT_3 + LOT_5 + IPC_6 + ses_1 + ses_2 + ses_3 + ses_4 + ses_5 + ses_6 + ses_7 + ses_8 + ses_9 + ses_10 + coreself_1 + coreself_2 + coreself_3 + coreself_4 + coreself_5 + coreself_6 + coreself_7 + coreself_8 + coreself_9 + coreself_10 + hsns_1 + sde_9 + sde_19 + Ability
+F2 =~ selfclarity_1 + selfclarity_2 + selfclarity_3 + selfclarity_4 + selfclarity_5 + selfclarity_6 + selfclarity_7 + selfclarity_8 + selfclarity_9 + selfclarity_10 + selfclarity_11 + selfclarity_12 + LOT_2 + NPI7 + sde_5 + sde_7 + sde_20
+F3 =~ moralSeImag_1 + moralSeImag_2 + moralSeImag_3 + moralSeImag_4 + moralSeImag_5 + moralSeImag_6 + moralSeImag_7 + moralSeImag_8 + moralSeImag_9 + Moral
+F4 =~ IM_2 + IM_3 + IM_4 + IM_6 + IM_7 + IM_9 + IM_10 + IM_11 + IM_12 + IM_13 + IM_14 + IM_15 + IM_16 + IM_17 + IM_18 + IM_19 + IM_20
+F5 =~ selfclarity_3 + selfclarity_10 + LOT_2 + coreself_2 + coreself_3 + hsns_3 + hsns_5 + hsns_6 + hsns_7 + hsns_8 + sde_2 + sde_6 + sde_10 + sde_12 + sde_14 + sde_18 + IM_1 + IM_3 + IM_5 + IM_7 + IM_15 + IM_19
+F6 =~ NPI1 + NPI2 + NPI3 + NPI4 + NPI5 + NPI6 + NPI8 + NPI10 + NPI11 + NPI15 + Social
+F7 =~ IPC_7 + MorIden_2 + MorIden_5 + MorIden_6 + MorIden_7 + MorIden_8 + MorIden_9 + MorIden_10
+F8 =~ IPC_1 + IPC_2 + IPC_7 + sde_9 + sde_13 + ability_SRET_EW
+F9 =~ hsns_9 + MorIden_3 + sde_1 + sde_3 + sde_11 + sde_15 + sde_17 + sde_19
+F10 =~ ability_SRET_rt + moral_SRET_rt + ability_SRET_RJ2_d + moral_SRET_RJ2_d
+F11 =~ ability_ALT_rt + moral_ALT_rt + ability_ALT_d + moral_ALT_d
+F12 =~ MorIden_1 + MorIden_3 + IM_10
+
+  # 因子之间的协方差
+  #F1 ~~ F2 + F3
+  #F4 ~~ F5 + F6
+  #F7 ~~ F8
+'
+# 4. 拟合双因子模型
+fit2 <- sem(bifactor_model, data = all_data_merged, std.lv = TRUE, orthogonal = TRUE)
+
+# 5. 输出拟合结果
+summary(fit2, standardized = TRUE, fit.measures = TRUE)
+
+# 6. 检查模型拟合指标
+fit_measures <- fitMeasures(fit2, c("rmsea", "cfi", "tli", "srmr"))
+print(fit_measures)
+```
+```{r}
+# 提取因子得分
+factor_scores2 <- lavPredict(fit, type = "lv")
+
+# 将因子得分转换为数据框
+factor_scores_df <- as.data.frame(factor_scores2)
+
+# 检查因子得分的前几行
+head(factor_scores_df)
+
+# 将因子得分与原始数据合并
+combined_data2 <- cbind(factor_scores2 , health_var)
+```
+
+```{r}
+# 提取因子数据 (F1 ~ F12) 和健康指标 (第15 ~ 18列)
+X <- as.matrix(combined_data2[, 2:13])  # 因子数据
+y <- as.matrix(combined_data2[, 15:18])  # 健康指标
+
+# 设置预测目标（以健康指标中的第1列为例，如需预测其他指标可更改列号）
+target <- y[, 4]
+
+# 标准化数据
+X_scaled <- scale(X)
+y_scaled <- scale(target)
+
+# 拟合 LASSO 模型
+set.seed(123)
+lasso_model <- cv.glmnet(X_scaled, y_scaled, alpha = 1, nfolds = 10, standardize = TRUE)
+
+# 提取最佳 lambda 值
+best_lambda <- lasso_model$lambda.min
+
+# 使用最佳 lambda 值重新拟合模型
+final_model <- glmnet(X_scaled, y_scaled, alpha = 1, lambda = 0.001)
+
+# 提取变量的回归系数
+coefficients <- as.data.frame(as.matrix(coef(final_model)))
+coefficients <- coefficients[-1, , drop = FALSE]  # 去掉截距项
+colnames(coefficients) <- c("Coefficient")
+coefficients$Factor <- rownames(coefficients)
+
+# 按绝对值排序以查看贡献最大因子
+coefficients <- coefficients[order(abs(coefficients$Coefficient), decreasing = TRUE), ]
 # 数据准备
 coefficients$FactorID <- 1:nrow(coefficients)  # 为每个因子分配一个唯一的ID
 coefficients$Angle <- 90 - 360 * (coefficients$FactorID - 0.5) / nrow(coefficients)  # 确定因子标签的角度
