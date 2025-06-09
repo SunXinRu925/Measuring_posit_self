@@ -225,7 +225,9 @@ mantel <- mantel_test(
     pd = cut(p, breaks = c(-Inf, 0.005, 0.01, 0.05, Inf),
              labels = c("< 0.005", "0.005 - 0.01", "0.01 - 0.05", ">= 0.05"))
   )
-
+# 过滤 Mantel 数据，保留显著相关的连线
+mantel_filtered <- mantel %>%
+  filter(p < 0.005 & r >= 0.2)  # 只保留显著的连线
 # 计算相关矩阵
 cor_matrix <- correlate(data_q_adjusted)
 
@@ -236,7 +238,7 @@ p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
              shape = 21, stroke = 0.35, color = "black") +
   scale_size(range = c(1, 8), guide = "none") +
   new_scale("size") +
-  geom_couple(data = mantel,
+  geom_couple(data = mantel_filtered,
               aes(color = pd, size = rd),
               label.size = 3.88,
               label.family = "",
@@ -316,7 +318,9 @@ mantel <- mantel_test(
     pd = cut(p, breaks = c(-Inf, 0.005, 0.01, 0.05, Inf),
              labels = c("< 0.005", "0.005 - 0.01", "0.01 - 0.05", ">= 0.05"))
   )
-
+# 过滤 Mantel 数据，保留显著相关的连线
+mantel_filtered_q <- mantel %>%
+  filter(p < 0.005 & r >= 0.2)  # 只保留显著的连线
 # 计算相关矩阵
 cor_matrix <- correlate(data_q_adjusted)
 
@@ -327,7 +331,7 @@ p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
              shape = 21, stroke = 0.35, color = "black") +
   scale_size(range = c(1, 8), guide = "none") +
   new_scale("size") +
-  geom_couple(data = mantel,
+  geom_couple(data = mantel_filtered_q ,
               aes(color = pd, size = rd),
               label.size = 3.88,
               label.family = "",
