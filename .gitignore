@@ -23,4 +23,17 @@ SRET.csv
 # ignore macos files
 .DS_Store
 ._*
+.git/hooks/._*
+.git/info/._*
+.git/objects/._*
+.git/logs/._*
+.git/logs/refs/._*
+.git/logs/refs/heads/._*
+.git/logs/refs/remotes/origin/._*
+.git/refs/._*
+.git/refs/heads/._*
+.git/refs/tags/._*
+.git/refs/remotes/._*
+.git/refs/remotes/origin/._*
+.git/objects/pack/._*
 Measuring_posit_self.Rproj
