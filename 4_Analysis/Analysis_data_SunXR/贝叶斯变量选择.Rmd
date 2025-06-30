@@ -9,20 +9,42 @@ output: html_document
 ```{r}
 #install.packages("rstan")
 library(rstan)
+library(psych)
 ```
 
 ```{r}
+library(psych)
+# 简单的 EFA 分析，提取 4 个因子，最大似然法（ml），旋转方式 oblimin
+efa_result <- fa(data_common, nfactors = 4, fm = "ml", rotate = "oblimin")
+
+# 查看结果
+print(efa_result)
+fa.parallel(data_common, fa = "fa", fm = "ml", n.iter = 100, show.legend = TRUE, main = "拐点图 / Parallel Analysis")
+print(efa_result$loadings, cutoff = 0.3, digits = 3)
+```
+
+```{r}
+efa_result_z <- fa(data_z, nfactors = 8, fm = "ml", rotate = "oblimin")
+
+# 查看结果
+print(efa_result_z)
+fa.parallel(data_z, fa = "fa", fm = "ml", n.iter = 100, show.legend = TRUE, main = "拐点图 / Parallel Analysis")
+print(efa_result_z$loadings, cutoff = 0.3, digits = 3)
+```
+
+
+```{r}
 # 设置参数
-N <- nrow(data_z)
-P <- ncol(data_z)
-K <- 8  # 假设提取3个因子
+N <- nrow(data_common)
+P <- ncol(data_common)
+K <- 4  # 提取因子
 
 # 准备数据列表
 stan_data <- list(
   N = N,
   P = P,
   K = K,
-  Y = as.matrix(data_z)
+  Y = as.matrix(data_common)
 )
 
 # 编译并运行模型
@@ -37,6 +59,56 @@ fit <- stan(
 # 查看参数
 print(fit, pars = c("Lambda", "gamma"))
 ```
+```{r}
+library(rstan)
+library(posterior)
+library(dplyr)
+
+# 1. 初步拟合模型
+N <- nrow(data_common)
+P <- ncol(data_common)
+K <- 4
+
+stan_data <- list(
+  N = N,
+  P = P,
+  K = K,
+  Y = as.matrix(data_common)
+)
+
+fit1 <- stan(
+  file = "spike_slab_efa.stan",
+  data = stan_data,
+  iter = 4000,
+  chains = 4,
+  cores = 4,
+  seed = 123
+)
+
+# 2. 提取 Lambda 的后验均值
+draws_df <- as_draws_df(fit1)
+lambda_vars <- grep("^Lambda", variables(draws_df), value = TRUE)
+
+lambda_summary <- summarise_draws(draws_df, variables = lambda_vars)
+
+lambda_summary <- lambda_summary %>%
+  mutate(
+    item = as.integer(sub("Lambda\\[([0-9]+),.*", "\\1", variable)),
+    factor = as.integer(sub("Lambda\\[[0-9]+,([0-9]+)\\]", "\\1", variable))
+  )
+
+# 3. 对每个条目，找出其所有因子的最大载荷值
+max_loadings <- lambda_summary %>%
+  group_by(item) %>%
+  summarise(max_loading = max(abs(mean)), .groups = "drop")
+
+# 4. 保留最大载荷 >= 0.3 的条目
+retained_items <- max_loadings %>% filter(max_loading >= 0.3) %>% pull(item)
+
+# 5. 从数据中提取对应的列
+data_filtered <- data_common[, retained_items]
+```
+
 
 ```{r}
 library(bayesplot)
@@ -47,7 +119,6 @@ traceplot(fit, inc_warmup = FALSE)
 ```{r}
 library(dplyr)
 library(posterior)
-# 假设你的拟合结果叫 fit
 summary_fit <- summary(fit, pars = "Lambda")$summary %>% 
   as.data.frame() %>%
   mutate(name = rownames(.))
