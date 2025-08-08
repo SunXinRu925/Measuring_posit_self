@@ -588,6 +588,34 @@ dev.off()
 ```
 
 
+# EGA模型
+```{r}
+library(EGAnet)
+library(psych)
+
+# 1. 去冗余（UVA）
+uva <- UVA(data = data_z, wto.cut = 0.25)
+data_ega <- uva$reduced_data
+
+# 2. 运行 EGA
+ega <- EGA(data = data_ega, model = "glasso", algorithm = "walktrap",
+           corrMethod = "spearman", gamma = 0.5, plot.EGA = TRUE)
+summary(ega)
+
+# 3. 稳定性检测（BootEGA）
+boot <- bootEGA(data = data_ega, model = "glasso", algorithm = "walktrap",
+                corrMethod = "spearman", n.boot = 500)
+summary(boot)
+
+# 查看维度稳定性
+dimensionStability(boot)
+itemStability(boot)
+```
+
+
+
+
+
 # Bifactor
 ```{r}
 # 自动确定模型因子数量
