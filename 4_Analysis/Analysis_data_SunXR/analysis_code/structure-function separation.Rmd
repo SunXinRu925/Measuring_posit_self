@@ -6,23 +6,23 @@ output: html_document
 ---
 # lasso
 ```{r}
-# 📦 加载必要包
+# 加载包
 library(glmnet)
 library(dplyr)
 library(ggplot2)
 
-# 📌 设置参数
+# 设置参数
 set.seed(123)
 n_repeat <- 100
-n_sample <- 7
+n_sample <- 7  #由于筛选后行为数据指标仅保留7个
 X_all <- data_remained
 X_explicit <- X_all[, 1:133]
 X_implicit <- X_all[, 134:140]
 
-# 📌 初始化总结果表
+# 初始化总结果表
 results_all <- data.frame()
 
-# 📌 遍历 health_var 中的所有预测变量（除第1列 ID）
+# 遍历 health_var 中的所有预测变量（除第1列 ID）
 for (varname in colnames(health_var)[-1]) {
   
   y <- health_var[[varname]]  # 当前目标变量
@@ -60,7 +60,7 @@ for (varname in colnames(health_var)[-1]) {
   results_all <- rbind(results_all, results)
 }
 
-# ✅ 查看整体结果（按变量分组平均）
+# 查看整体结果（按变量分组平均）
 summary_df <- results_all %>%
   group_by(outcome) %>%
   summarise(
@@ -72,7 +72,7 @@ summary_df <- results_all %>%
 
 print(summary_df)
 
-# ✅ 可视化：每个心理变量分别画出 R² 对比
+# 可视化：每个心理变量分别画出 R² 对比
 library(tidyr)
 
 results_long <- results_all %>%
@@ -89,13 +89,13 @@ ggplot(results_long, aes(x = type, y = R2, fill = type)) +
 
 # 随机森林
 ```{r}
-# 📦 加载必要包
+# 加载必要包
 library(randomForest)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 
-# 📌 设置参数
+# 设置参数
 set.seed(123)
 n_repeat <- 100
 n_sample <- 7
@@ -103,10 +103,10 @@ X_all <- data_remained
 X_explicit <- X_all[, 1:133]
 X_implicit <- X_all[, 134:140]
 
-# 📌 初始化总结果表
+#  初始化总结果表
 results_all_rf <- data.frame()
 
-# 📌 遍历 health_var 中的所有预测变量（除第1列 ID）
+# 遍历 health_var 中的所有预测变量（除第1列 ID）
 for (varname in colnames(health_var)[-1]) {
   
   y <- health_var[[varname]]  # 当前目标变量
@@ -146,7 +146,7 @@ for (varname in colnames(health_var)[-1]) {
   results_all_rf <- rbind(results_all_rf, results)
 }
 
-# ✅ 汇总平均结果
+# 汇总平均结果
 summary_rf <- results_all_rf %>%
   group_by(outcome) %>%
   summarise(
@@ -170,7 +170,8 @@ ggplot(results_long_rf, aes(x = type, y = R2, fill = type)) +
        x = "", y = expression(R^2)) +
   theme_minimal()
 ```
-# 泛化拟合
+
+# 采用等量抽样的方法进行泛化拟合
 ```{r}
 library(randomForest)
 library(dplyr)
@@ -398,5 +399,87 @@ for (i in seq_along(target_vars)) {
 perf_questionnaire_rf
 perf_behavior_rf
 ```
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
 
+# ------------------
+# 计算汇总结果
+# ------------------
+summary_rf <- results_all_rf %>%
+  group_by(outcome) %>%
+  summarise(
+    mean_RMSE_exp = mean(RMSE_exp),
+    mean_RMSE_imp = mean(RMSE_imp),
+    mean_R2_exp = mean(R2_exp),
+    mean_R2_imp = mean(R2_imp)
+  )
+
+# ------------------
+# 转为长格式，方便绘图
+# ------------------
+summary_long <- summary_rf %>%
+  pivot_longer(
+    cols = -outcome,
+    names_to = c("metric", "data_type"),
+    names_pattern = "(.*)_(exp|imp)",
+    values_to = "value"
+  ) %>%
+  mutate(
+    data_type = ifelse(data_type == "exp", "显性数据（问卷）", "隐性数据（行为任务）"),
+    metric = ifelse(metric == "mean_RMSE", "RMSE", "R²")
+  )
+
+# ------------------
+# 绘制 R² 对比图
+# ------------------
+ggplot(
+  filter(summary_long, metric == "R²"),
+  aes(x = outcome, y = value, fill = data_type)
+) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.7)) +
+  geom_text(aes(label = round(value, 3)), 
+            position = position_dodge(width = 0.7), 
+            vjust = -0.5, size = 3.5) +
+  labs(title = "显性数据（问卷） vs 隐性数据（行为任务）预测效果对比",
+       y = expression(R^2), x = "健康指标", fill = "数据类型") +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(face = "bold", hjust = 0.5)
+  )
+
+# ------------------
+# 绘制 RMSE 对比图（可选）
+# ------------------
+ggplot(
+  filter(summary_long, metric == "RMSE"),
+  aes(x = outcome, y = value, fill = data_type)
+) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.7)) +
+  geom_text(aes(label = round(value, 2)), 
+            position = position_dodge(width = 0.7), 
+            vjust = -0.5, size = 3.5) +
+  labs(title = "显性数据（问卷） vs 隐性数据（行为任务）预测误差对比",
+       y = "RMSE", x = "健康指标", fill = "数据类型") +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(face = "bold", hjust = 0.5)
+  )
+```
+
+```{r}
+df_cv <- data.frame(
+  outcome = rep(colnames(perf_questionnaire_rf), 2),
+  R2 = c(perf_questionnaire_rf["Rsq", ], perf_behavior_rf["Rsq", ]),
+  DataType = rep(c("显性数据（问卷）", "隐性数据（行为任务）"), each = ncol(perf_questionnaire_rf))
+)
+
+ggplot(df_cv, aes(x = outcome, y = R2, fill = DataType)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_text(aes(label = round(R2, 3)), position = position_dodge(width = 0.9), vjust = -0.5) +
+  theme_minimal()
+```
 
