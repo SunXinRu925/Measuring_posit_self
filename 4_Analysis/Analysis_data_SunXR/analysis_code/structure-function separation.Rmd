@@ -493,3 +493,14 @@ ML_pre <- subset(ML_pre, select = -ID)
 write.csv(ML_pre, "ML_pre.csv", row.names = FALSE)
 ```
 
+
+#生成文件，用于自动ml分析
+```{r}
+# 合并两个数据框（按列拼接）
+ML_pre_al <- cbind(data_z, health_var)
+
+# 去掉 ID 列（假设列名是 "ID"）
+#ML_pre_al <- subset(ML_pre, select = -ID)
+# 导出为 CSV 文件
+write.csv(ML_pre_al, "ML_pre_al.csv", row.names = FALSE)
+```
