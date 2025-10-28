@@ -588,7 +588,7 @@ dev.off()
 ```
 
 
-# EGA模型
+# EGA去冗余模型
 ```{r}
 library(EGAnet)
 library(psych)
@@ -649,6 +649,177 @@ ggraph(graph, layout = "fr") +
   theme_void() +
   labs(color = "Community")
 ```
+
+
+# EGA去低相关模型
+```{r}
+# ============================================================
+# 📘 Step 1. 加载必要包
+# ============================================================
+library(psych)
+library(EGAnet)
+library(ggplot2)
+
+# ============================================================
+# 📘 Step 2. 计算条目相关度并筛除低相关条目
+# ============================================================
+
+# 假设你的标准化数据为 data_z
+cor_mat <- cor(data_z, method = "spearman")  # 使用 Spearman 相关
+
+# 计算每个条目的平均绝对相关度（与其他变量的平均联系强度）
+mean_abs_cor <- apply(abs(cor_mat), 1, mean)
+
+# 设定筛选阈值 —— 只保留平均相关度 >= 0.15 的条目
+threshold <- 0.2
+low_related_items <- names(mean_abs_cor[mean_abs_cor < threshold])
+kept_items <- setdiff(colnames(data_z), low_related_items)
+
+# 打印结果
+cat("=====================================\n")
+cat("🧹 被去除的低相关条目（平均|r| <", threshold, "）:\n")
+print(low_related_items)
+cat("\n✅ 保留下来的条目数量:", length(kept_items), "\n")
+cat("=====================================\n\n")
+
+# 构建保留条目的数据集
+data_ega <- data_z[, kept_items]
+
+# ============================================================
+# 📊 Step 3. 可视化查看每个条目的平均相关度
+# ============================================================
+ggplot(data.frame(Item = names(mean_abs_cor), MeanCor = mean_abs_cor),
+       aes(x = reorder(Item, MeanCor), y = MeanCor)) +
+  geom_bar(stat = "identity", fill = ifelse(mean_abs_cor < threshold, "red", "skyblue")) +
+  coord_flip() +
+  labs(title = "Average Absolute Correlation of Items",
+       y = "Mean |Spearman r|", x = "Items") +
+  theme_minimal()
+
+# ============================================================
+# 🔍 Step 4. 运行 EGA 网络分析
+# ============================================================
+ega <- EGA(
+  data = data_ega,
+  model = "glasso",
+  algorithm = "walktrap",
+  corrMethod = "spearman",
+  gamma = 0.5,           # 控制稀疏度
+  plot.EGA = TRUE
+)
+
+cat("\n🧠 EGA 分析结果摘要:\n")
+summary(ega)
+
+# ============================================================
+# 🔁 Step 5. 进行 BootEGA 稳定性检测
+# ============================================================
+boot <- bootEGA(
+  data = data_ega,
+  model = "glasso",
+  algorithm = "walktrap",
+  corrMethod = "spearman",
+  n.boot = 500
+)
+
+cat("\n📊 BootEGA 结果摘要:\n")
+summary(boot)
+
+# 维度稳定性
+cat("\n📈 维度稳定性（dimensionStability）:\n")
+print(dimensionStability(boot))
+
+# 条目稳定性
+cat("\n📋 条目稳定性（itemStability）:\n")
+print(itemStability(boot))
+
+# ============================================================
+# 📎 Step 6. 输出结果总结
+# ============================================================
+cat("\n✅ 分析完成！\n")
+cat("保留的条目总数：", length(kept_items), "\n")
+cat("EGA 识别的维度数：", ega$n.dim, "\n")
+cat("BootEGA 平均维度稳定性：", mean(dimensionStability(boot)$proportion), "\n")
+
+```
+
+
+# 条目归属提取
+```{r}
+# ============================================================
+# 🧩 Step 1. 提取 EGA 社群条目归属
+# ============================================================
+
+# 查看每个条目属于哪个社群
+communities <- ega$wc  # 或 ega$dim.variables
+head(communities)
+
+# 将条目按照社群分组
+community_items <- split(names(communities), communities)
+
+# 打印每个社群包含的条目
+for (i in seq_along(community_items)) {
+  cat("\n==============================\n")
+  cat("🔹 社群", i, "包含的条目:\n")
+  print(community_items[[i]])
+}
+```
+
+```{r}
+# 假设你已经运行了以下变量：
+# kept_items —— 保留下来的条目名
+# low_related_items —— 被去除的低相关条目名
+# data_z —— 标准化后的原始数据框
+
+# -----------------------------
+# 导出保留下来的条目
+# -----------------------------
+data_kept <- data_z[, kept_items]   # 提取保留条目的数据
+write.csv(data_kept, "data_kept_items.csv", row.names = FALSE)
+cat("✅ 已保存保留条目的数据文件：data_kept_items.csv\n")
+
+# -----------------------------
+# 导出被去除的低相关条目
+# -----------------------------
+if (length(low_related_items) > 0) {
+  data_removed <- data_z[, low_related_items, drop = FALSE]  # 提取被去除条目
+  write.csv(data_removed, "data_removed_items.csv", row.names = FALSE)
+  cat("🗑️ 已保存被去除条目的数据文件：data_removed_items.csv\n")
+} else {
+  cat("⚠️ 没有被去除的条目，未生成 data_removed_items.csv 文件。\n")
+}
+```
+
+```{r}
+# 合并两个数据框（按列拼接）
+ML_pre_removed <- cbind(data_removed, health_var)
+
+# 导出为 CSV 文件
+write.csv(ML_pre_removed, "ML_pre_removed.csv", row.names = FALSE)
+```
+
+
+```{r}
+# 合并两个数据框（按列拼接）
+ML_pre_remained <- cbind(data_kept, health_var)
+
+# 导出为 CSV 文件
+write.csv(ML_pre_remained, "ML_pre_remained.csv", row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

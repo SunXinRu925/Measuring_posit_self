@@ -485,12 +485,12 @@ ggplot(df_cv, aes(x = outcome, y = R2, fill = DataType)) +
 #生成文件，用于自动ml分析
 ```{r}
 # 合并两个数据框（按列拼接）
-ML_pre <- cbind(data_remained, health_var)
+ML_pre_kept <- cbind(data_ega, health_var)
 
 # 去掉 ID 列（假设列名是 "ID"）
-ML_pre <- subset(ML_pre, select = -ID)
+# ML_pre_kept <- subset(ML_pre, select = -ID)
 # 导出为 CSV 文件
-write.csv(ML_pre, "ML_pre.csv", row.names = FALSE)
+write.csv(ML_pre_kept, "ML_pre_kept.csv", row.names = FALSE)
 ```
 
 
