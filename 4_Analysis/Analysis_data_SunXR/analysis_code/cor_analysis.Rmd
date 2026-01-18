@@ -39,43 +39,38 @@ corrplot(
 ```
 
 ```{r}
-par(
-  family = "Times New Roman",       # 字体
-  mar = c(2, 2, 2, 2),              # 边距（下、左、上、右）
-  mgp = c(2, 0.5, 0),              # 坐标轴文字、刻度位置
-  cex.axis = 0.8,                  # 坐标轴刻度字体大小
-  font = 2                         # 粗体
-)
+library(corrplot)
 
-# 定义颜色梯度（模板样式：浅米色 → 深橘红）
-col <- colorRampPalette(c("#fffff1", "#fbbf90", "#f28556", "#F16913", "#d34738"))(100)
-
-# 计算相关矩阵（皮尔逊相关系数）
 cor_matrix <- cor(data_al, method = "pearson")
 
-# 绘制相关系数图（模板样式）
+# 柔和配色：浅蓝 → 米白 → 珊瑚红
+soft_palette <- colorRampPalette(c("#89CFF0", "#FDF6EC", "#FF7F50"))(200)
+
 corrplot(
   cor_matrix,
-  method = "circle",              # 圆圈形式
-  type = "lower",                 # 显示下三角
-  col = col,                      # 使用模板色带
-  tl.col = "black",               # 标签颜色
-  tl.cex = 0.9,                   # 标签字体大小
-  tl.srt = 45,                    # 标签旋转角度
-  cl.cex = 0.8,                   # 图例字体大小
-  #addCoef.col = "black",          # 添加系数文字（黑色）
-  #number.cex = 0.75,              # 系数字体大小
-  #number.digits = 2,              # 保留两位小数
-  addgrid.col = NA,               # 无网格线
-  is.corr = TRUE,                 # 标记为相关矩阵
-  col.lim = c(-1, 1),             # 颜色范围（适用于负相关）
-  diag = F,                    # 显示对角线
-  outline = TRUE                  # 添加边框
+  method = "color",
+  type = "upper",
+  col = soft_palette,
+  tl.col = "gray20",     # 标签颜色
+  tl.srt = 40,           # 标签旋转角度
+  tl.cex = 0.95,         # 标签字体大小
+  diag = FALSE,          # ❌ 不显示对角线（即 r=1 的部分）
+  mar = c(0, 0, 3, 0),   # 边距调整
+  title = "自我报告与认知任务相关热图",
+  cl.cex = 0.85,         # 图例文字大小
+  cl.ratio = 0.18,       # 图例比例
+  cl.align.text = "r"
 )
+```
 
-# 标题
-# title("自我报告 + 认知任务：相关系数热图", line = 1.5, family = "Times New Roman", font.main = 2)
-
+```{r}
+# 计算相关矩阵
+cor_matrix <- cor(data_al, method = "pearson", use = "pairwise.complete.obs")
+# 取上三角（不含对角线）
+upper_vals <- cor_matrix[upper.tri(cor_matrix)]
+# 平均相关
+mean_cor <- mean(upper_vals, na.rm = TRUE)
+mean_cor
 ```
 
 
@@ -94,44 +89,48 @@ corrplot(
 )
 ```
 
+
 ```{r}
-par(
-  family = "Times New Roman",       # 字体
-  mar = c(2, 2, 2, 2),              # 边距（下、左、上、右）
-  mgp = c(2, 0.5, 0),              # 坐标轴文字、刻度位置
-  cex.axis = 0.8,                  # 坐标轴刻度字体大小
-  font = 2                         # 粗体
-)
+library(corrplot)
 
-# 定义颜色梯度（模板样式：浅米色 → 深橘红）
-col <- colorRampPalette(c("#fffff1", "#fbbf90", "#f28556", "#F16913", "#d34738"))(100)
+# ① 计算相关矩阵（这里仅使用前16列）
+cor_matrix <- cor(data_al[, 1:16], method = "pearson")
 
-# 计算相关矩阵（皮尔逊相关系数）
-cor_matrix_q <- cor(data_al[,1:16], method = "pearson") 
+# ② 柔和配色方案：浅蓝 → 米白 → 珊瑚红
+soft_palette <- colorRampPalette(c("#89CFF0", "#FDF6EC", "#FF7F50"))(200)
 
-# 绘制相关系数图（模板样式）
+# ③ 绘制美化后的相关热图
 corrplot(
-  cor_matrix_q,
-  method = "circle",              # 圆圈形式
-  type = "lower",                 # 显示下三角
-  col = col,                      # 使用模板色带
-  tl.col = "black",               # 标签颜色
-  tl.cex = 0.9,                   # 标签字体大小
-  tl.srt = 45,                    # 标签旋转角度
-  cl.cex = 0.8,                   # 图例字体大小
-  #addCoef.col = "black",          # 添加系数文字（黑色）
-  #number.cex = 0.75,              # 系数字体大小
-  #number.digits = 2,              # 保留两位小数
-  addgrid.col = NA,               # 无网格线
-  is.corr = TRUE,                 # 标记为相关矩阵
-  col.lim = c(-1, 1),             # 颜色范围（适用于负相关）
-  diag = F,                    # 显示对角线
-  outline = TRUE                  # 添加边框
+  cor_matrix,
+  method = "color",          # 用颜色块展示相关性
+  type = "upper",            # 仅显示上三角矩阵
+  col = soft_palette,        # 自定义柔和配色
+  tl.col = "gray20",         # 标签颜色
+  tl.srt = 40,               # 标签旋转角度
+  tl.cex = 0.95,             # 标签字体大小
+  diag = FALSE,              # 不显示对角线 (r = 1)
+  mar = c(0, 0, 3, 0),       # 边距调整
+  title = "自我报告相关系数热图",  # 图标题
+  cl.cex = 0.85,             # 图例文字大小
+  cl.ratio = 0.18,           # 图例比例（越小越细）
+  cl.align.text = "r"        # 图例文字右对齐
 )
-
-# 标题
-title("自我报告：相关系数热图", line = 1.5, family = "Times New Roman", font.main = 2)
 ```
+```{r}
+# 计算前 16 列的相关矩阵
+cor_matrix <- cor(data_al[, 1:16], method = "pearson", use = "pairwise.complete.obs")
+
+# 取上三角（不含对角线）
+upper_vals <- cor_matrix[upper.tri(cor_matrix)]
+
+# 计算平均相关
+mean_cor <- mean(upper_vals, na.rm = TRUE)
+
+# 查看结果
+mean_cor
+```
+
+
 
 
 #认知任务
@@ -150,47 +149,50 @@ corrplot(
 ```
 
 ```{r}
-par(
-  family = "Times New Roman",       # 字体
-  mar = c(2, 2, 2, 2),              # 边距（下、左、上、右）
-  mgp = c(2, 0.5, 0),              # 坐标轴文字、刻度位置
-  cex.axis = 0.8,                  # 坐标轴刻度字体大小
-  font = 2                         # 粗体
-)
+library(corrplot)
 
-# 定义颜色梯度（模板样式：浅米色 → 深橘红）
-col <- colorRampPalette(c("#fffff1", "#fbbf90", "#f28556", "#F16913", "#d34738"))(100)
+# ① 计算相关矩阵（行为任务部分）
+cor_matrix <- cor(data_al[, 17:30], method = "pearson")
 
-# 计算相关矩阵（皮尔逊相关系数）
-cor_matrix_task <- cor(data_al[, 17:30], method = "pearson") 
+# ② 柔和配色方案：浅蓝 → 米白 → 珊瑚红
+soft_palette <- colorRampPalette(c("#89CFF0", "#FDF6EC", "#FF7F50"))(200)
 
-# 绘制相关系数图（模板样式）
+# ③ 绘制美化后的相关热图
 corrplot(
-  cor_matrix_task,
-  method = "circle",              # 圆圈形式
-  type = "lower",                 # 显示下三角
-  col = col,                      # 使用模板色带
-  tl.col = "black",               # 标签颜色
-  tl.cex = 0.9,                   # 标签字体大小
-  tl.srt = 45,                    # 标签旋转角度
-  cl.cex = 0.8,                   # 图例字体大小
-  #addCoef.col = "black",          # 添加系数文字（黑色）
-  #number.cex = 0.75,              # 系数字体大小
-  #number.digits = 2,              # 保留两位小数
-  addgrid.col = NA,               # 无网格线
-  is.corr = TRUE,                 # 标记为相关矩阵
-  col.lim = c(-1, 1),             # 颜色范围（适用于负相关）
-  diag = F,                    # 显示对角线
-  outline = TRUE                  # 添加边框
+  cor_matrix,
+  method = "color",              # 用颜色块展示相关性
+  type = "upper",                # 仅显示上三角矩阵
+  col = soft_palette,            # 柔和配色
+  tl.col = "gray20",             # 标签颜色
+  tl.srt = 40,                   # 标签旋转角度
+  tl.cex = 0.95,                 # 标签字体大小
+  diag = FALSE,                  # 不显示对角线（r=1）
+  mar = c(0, 0, 3, 0),           # 调整边距
+  title = "认知任务相关系数热图",   # 图标题
+  cl.cex = 0.85,                 # 图例文字大小
+  cl.ratio = 0.18,               # 图例比例
+  cl.align.text = "r"            # 图例文字右对齐
 )
+```
+```{r}
+# 计算前 17-30 列的相关矩阵
+cor_matrix <- cor(data_al[, 17:30], method = "pearson", use = "pairwise.complete.obs")
 
-# 标题
-title("认知任务：相关系数热图", line = 1.5, family = "Times New Roman", font.main = 2)
+# 取上三角（不含对角线）
+upper_vals <- cor_matrix[upper.tri(cor_matrix)]
+
+# 计算平均相关
+mean_cor <- mean(upper_vals, na.rm = TRUE)
+
+# 查看结果
+mean_cor
 ```
 
 
 
-#保留一个变量时其他变量的预测程度（10折交叉验证）
+
+
+#保留一个变量时其他变量的预测程度（10折交叉验证）（未纳入论文）
 ```{r}
 # 获取所有变量名
 variables <- setdiff(names(data_z_cleaned), c("X.1", "X"))
@@ -270,7 +272,7 @@ selected <- performance_df[performance_df$Rsquared > 0.4, ]
 print(selected$Target_Variable)
 ```
 
-#对自我报告与认知任务的网络分析
+#对自我报告与认知任务的网络分析（对应论文中初步EGA分析）
 ```{r}
 # Step 1: 数据准备
 network_data1 <- data_al[, 1:16]  # 第一组数据
@@ -315,11 +317,40 @@ qgraph(
 dev.off()
 ```
 
+# 假定2个集群 vs. 自动划分集群下的跨组连接指标
+```{r}
+whole_data <- data_al[, 1:30]
+
+ega_whole <- EGA(whole_data, model = "glasso")
+
+adj_whole <- ega_whole$network
+```
+```{r}
+idx1 <- 1:16     # 问卷
+idx2 <- 17:30    # 任务
+
+cross_edges <- adj_whole[idx1, idx2]
+
+mean_cross <- mean(abs(cross_edges))
+mean_cross
+```
+
+```{r}
+groups_detected <- ega_whole$wc
+groups_detected
+```
+```{r}
+library(mclust)
+
+true_group <- c(rep(1, 16), rep(2, 14))
+ARI <- adjustedRandIndex(groups_detected, true_group)
+ARI
+```
 
 
 
 
-##对自我报告与认知任务分别降维(PCA)
+##对自我报告与认知任务分别降维(PCA)（未纳入）
 #自我报告
 ```{r}
 # 如未安装需要先安装所需的包
@@ -344,7 +375,7 @@ fviz_pca_ind(pca_q_result, col.ind = "cos2",
 pca_q_scores <- as.data.frame(pca_q_result$ind$coord)
 write.csv(pca_q_scores, "PCA1.csv", row.names = FALSE)
 ```
-#贝叶斯因子确定最佳因子数，EFA分析
+#贝叶斯因子确定最佳因子数，EFA分析（未纳入）
 ```{r}
 
 KMO(all_data_merged)          # Kaiser-Meyer-Olkin 检验
@@ -377,7 +408,7 @@ efa_factor_scores <- factor.scores(all_data_merged, f = efa_result_merged)$score
 ```
 
 
-#聚类+网络热图
+#聚类+网络热图（未纳入）
 ```{r}
 #由于mantel检验无法对负值进行分析，因此在此步骤将计算z分数后的问卷总分进行平方处理
 # 对data_al中的每个元素取平方
@@ -449,7 +480,7 @@ p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
 ggsave(p, filename = "Cluster_Correlation_with_Mantel（1）.pdf", width = 9, height = 6)
 ```
 
-#认知任务
+#认知任务（未纳入）
 ```{r}
 # 读取CSV文件
 pca_task <- data_al[,17:30]
@@ -470,7 +501,7 @@ pca_task_scores <- as.data.frame(pca_task_result$ind$coord)
 write.csv(pca_task_scores, "PCA2.csv", row.names = FALSE)
 ```
 
-#聚类+网络热图
+#聚类+网络热图（未纳入）
 ```{r}
 #由于mantel检验无法对负值进行分析，因此在此步骤将计算z分数后的问卷总分进行平方处理
 # 对data_al中的每个元素取平方
@@ -542,7 +573,7 @@ p <- qcorrplot(cor_matrix, type = "upper", diag = FALSE, grid_col = NA) +
 ggsave(p, filename = "Cluster_Correlation_with_Mantel（2）.pdf", width = 9, height = 6)
 ```
 
-#对自我报告与认知任务的网络分析
+#对自我报告与认知任务的网络分析（未纳入）
 ```{r}
 # Step 1: 数据准备
 network_data1 <- data_al[, 1:16]  # 第一组数据
@@ -617,6 +648,28 @@ summary(boot)
 dimensionStability(boot)
 itemStability(boot)
 ```
+# 条目归属提取
+```{r}
+# ============================================================
+# 🧩 Step 1. 提取 EGA 社群条目归属
+# ============================================================
+
+# 查看每个条目属于哪个社群
+communities <- ega$wc  # 或 ega$dim.variables
+head(communities)
+
+# 将条目按照社群分组
+community_items <- split(names(communities), communities)
+
+# 打印每个社群包含的条目
+for (i in seq_along(community_items)) {
+  cat("\n==============================\n")
+  cat("🔹 社群", i, "包含的条目:\n")
+  print(community_items[[i]])
+}
+```
+
+# 可视化美化
 ```{r}
 library(EGAnet)
 library(ggraph)
@@ -651,7 +704,7 @@ ggraph(graph, layout = "fr") +
 ```
 
 
-# EGA去低相关模型
+# EGA去低相关模型（去低相关后社群提取效果不理想，未纳入）
 ```{r}
 # ============================================================
 # 📘 Step 1. 加载必要包
@@ -743,28 +796,7 @@ cat("BootEGA 平均维度稳定性：", mean(dimensionStability(boot)$proportion
 
 ```
 
-
-# 条目归属提取
-```{r}
-# ============================================================
-# 🧩 Step 1. 提取 EGA 社群条目归属
-# ============================================================
-
-# 查看每个条目属于哪个社群
-communities <- ega$wc  # 或 ega$dim.variables
-head(communities)
-
-# 将条目按照社群分组
-community_items <- split(names(communities), communities)
-
-# 打印每个社群包含的条目
-for (i in seq_along(community_items)) {
-  cat("\n==============================\n")
-  cat("🔹 社群", i, "包含的条目:\n")
-  print(community_items[[i]])
-}
-```
-
+# 提取保留的条目，用于后续Auto ML分析
 ```{r}
 # 假设你已经运行了以下变量：
 # kept_items —— 保留下来的条目名
@@ -790,41 +822,20 @@ if (length(low_related_items) > 0) {
 }
 ```
 
+# 合成Auto ML数据文件
 ```{r}
 # 合并两个数据框（按列拼接）
 ML_pre_removed <- cbind(data_removed, health_var)
 
 # 导出为 CSV 文件
 write.csv(ML_pre_removed, "ML_pre_removed.csv", row.names = FALSE)
-```
 
-
-```{r}
 # 合并两个数据框（按列拼接）
 ML_pre_remained <- cbind(data_kept, health_var)
 
 # 导出为 CSV 文件
 write.csv(ML_pre_remained, "ML_pre_remained.csv", row.names = FALSE)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Bifactor
 ```{r}
@@ -887,6 +898,17 @@ head(factor_scores)
 ```
 
 ```{r}
+library(BifactorIndicesCalculator)
+
+# 直接传入 lavaan 拟合对象
+bfi_results <- bifactorIndices(fit)
+
+# 查看结果
+bfi_results
+```
+
+
+```{r}
 # 可视化模型结构
 library(semPlot)
 semPaths(fit, 
@@ -904,17 +926,201 @@ semPaths(fit,
          mar = c(5, 5, 5, 5))
 ```
 
+```{r}
+library(semPlot)
 
+semPaths(
+  fit,
+  bifactor = "I",              # 通用因子名称（与你生成公式时一致）
+  what = "std",                # 显示标准化路径系数
+  style = "lisrel",            # LISREL风格：清晰展示潜变量与观测变量
+  layout = "tree2",            # 层次化布局，比 tree 更自然
+  rotation = 3,                # 控制因子方向，使图形更紧凑
+  title = FALSE,               # 不显示标题
+  residuals = FALSE,           # 隐藏误差项
+  intercepts = FALSE,          # 隐藏截距
+  fade = FALSE,                # 保留所有路径
+  curvePivot = TRUE,           # 平滑路径线
+  
+  # --- 节点与形状设置 ---
+  sizeMan = 6,                 # 观测变量节点大小
+  sizeLat = 9,                 # 潜变量节点大小
+  node.width = 1,            # 控制节点宽度
+  shapeMan = "rectangle",      # 观测变量方形
+  shapeLat = "ellipse",        # 潜变量椭圆
+  color = list(
+    lat = "#89cff0",           # 潜变量蓝色
+    man = "#ff7f50",
+    int = "#7CAE00"            # 观测变量绿色
+  ),
+  
+  # --- 连线与标签 ---
+  edge.color = "grey",        # 路径线颜色
+  edge.width = 1.3,            # 路径线加粗
+  label.cex = 0.1,             # 节点名称字号
+  edge.label.cex = 0.1,        # 路径系数字号
+  font = 2,                    # 粗体标签
+  fixedStyle = c("grey", 1),  # 固定路径样式
+  freeStyle = c("grey", 1),   # 自由路径样式
+  esize = 0.01,                # 路径箭头端点大小
+  mar = c(4, 5, 4, 5)          # 边距留白
+)
+```
 
+```{r}
+# -------------------------------
+# 1. 因子载荷热图
+# -------------------------------
+library(ggplot2)
+library(reshape2)
 
+# 准备载荷矩阵
+loading_matrix <- efa_result$loadings[, 1:nfactors]
+loading_df <- as.data.frame(loading_matrix)
+loading_df$item <- rownames(loading_df)
 
+# long format
+loading_long <- melt(loading_df, id.vars = "item",
+                     variable.name = "factor", value.name = "loading")
 
+# 绘制热图
+ggplot(loading_long, aes(x = factor, y = item, fill = loading)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme_minimal(base_size = 12) +
+  labs(title = "EFA 因子载荷热图", x = "因子", y = "条目")
+```
+```{r}
+# -------------------------------
+# 2. Bifactor 指标可视化
+# -------------------------------
+model_df <- as.data.frame(t(bfi_results$ModelLevelIndices))
+model_df$metric <- rownames(model_df)
+colnames(model_df)[1] <- "value"
 
+ggplot(model_df, aes(x = metric, y = value)) +
+  geom_col() +
+  theme_minimal(base_size = 12) +
+  labs(title = "Bifactor 模型层级指数（Model-Level）",
+       x = "指标", y = "数值")
 
+# Factor-Level 指标（如果存在）
+if (!is.null(bfi_results$FactorLevelIndices)) {
+  factor_df <- as.data.frame(bfi_results$FactorLevelIndices)
+  factor_df$metric <- rownames(factor_df)
+  factor_long <- melt(factor_df, id.vars = "metric")
+  
+  ggplot(factor_long, aes(x = metric, y = value, fill = variable)) +
+    geom_col(position = "dodge") +
+    theme_minimal(base_size = 12) +
+    labs(title = "Bifactor 因子层指数（Factor-Level）",
+         x = "指标", y = "数值", fill = "因子")
+}
+```
 
+```{r}
+library(semPlot)
+# 1. 生成 semPlot 模型对象，获得正确节点顺序
+spm <- semPlot::semPlotModel(fit)
 
+# 2. 提取潜变量与观测变量名称
+lv_names <- lavNames(fit, "lv")     # 潜变量
+ov_names <- lavNames(fit, "ov")     # 观测变量（原条目名）
 
+# 3. 为每个 semPaths 的节点创建标签：潜变量=原名，观测变量=数字
+node_names <- spm@Vars$name
+# 找到观测变量在节点中的位置
+ov_positions <- which(node_names %in% ov_names)
 
+#first_pos <- ov_positions[1]
+last_pos  <- ov_positions[length(ov_positions)]
+
+# 创建标签向量
+labels_vec <- rep("", length(node_names))   # 全部不显示
+
+# 潜变量保留原名
+labels_vec[node_names %in% lv_names] <- node_names[node_names %in% lv_names]
+
+# 只显示（第一个与）最后一个条目的数字编号
+#labels_vec[first_pos] <- "1"
+labels_vec[last_pos]  <- as.character(length(ov_names))
+# 4. 绘制双因子模型路径图
+semPaths(
+  fit,
+  bifactor = "I",            # G 因子I
+  what = "std",              # 使用标准化路径
+  title = FALSE,             
+  residuals = FALSE,         
+  intercepts = FALSE,
+  layout = "tree2",          # 结构布局
+  rotation = 1,
+  
+  # 视觉参数（与你示例代码一致）
+  color = "lightblue",
+  edge.color = "lightblue",
+  fixedStyle = c("lightblue", 1),
+  freeStyle = c("grey", 1),
+  
+  nodeLabels = labels_vec,   # 替换标签 
+  label.cex = 1,
+  edge.label.cex = 0.5,
+  esize = 0.05
+)
+```
+```{r}
+library(semPlot)
+
+# 1. 生成 semPlot 模型对象
+spm <- semPlot::semPlotModel(fit)
+
+# 2. 名称提取
+lv_names <- lavNames(fit, "lv")    # 潜变量
+ov_names <- lavNames(fit, "ov")    # 条目名称
+node_names <- spm@Vars$name        # semPaths 将使用的节点顺序
+
+# 3. 生成潜变量的数字名称
+general_factor <- "I"                      #  G 因子
+specific_factors <- setdiff(lv_names, general_factor)
+
+# 用数字给特异因子编号
+specific_labels <- paste0(seq_along(specific_factors))
+names(specific_labels) <- specific_factors   # 建立映射表
+
+# 4. 构造 label 向量（同样隐藏大部分条目）
+labels_vec <- rep("", length(node_names))
+
+# 潜变量标签：I 保留名称，其他替换为数字
+labels_vec[node_names == general_factor] <- general_factor
+labels_vec[node_names %in% specific_factors] <- 
+  specific_labels[node_names[node_names %in% specific_factors]]
+
+# 5. 观测变量：只显示最后一个数字
+ov_positions <- which(node_names %in% ov_names)
+last_pos <- ov_positions[length(ov_positions)]
+labels_vec[last_pos] <- as.character(length(ov_names))
+
+# 6. 可视化
+semPaths(
+  fit,
+  bifactor = "I",
+  what = "std",
+  title = FALSE,
+  residuals = FALSE,
+  intercepts = FALSE,
+  layout = "tree2",
+  rotation = 1,
+
+  color = "lightblue",
+  edge.color = "lightblue",
+  fixedStyle = c("lightblue", 1),
+  freeStyle = c("grey", 1),
+
+  nodeLabels = labels_vec,
+  label.cex = 1,
+  edge.label.cex = 0.5,
+  esize = 0.05
+)
+```
 
 
 #对现实结果的预测：抑郁/焦虑/拖延/主观幸福感
